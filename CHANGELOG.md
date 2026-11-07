@@ -2,6 +2,12 @@
 
 All notable changes to MyGo Music are written down here. Versions follow [Semantic Versioning](https://semver.org).
 
+## [0.1.23] - 2026-11-08
+
+### Changed
+
+- Now Playing shows the volume percentage beside a centered volume slider.
+
 ## [0.1.22] - 2026-11-07
 
 ### Added
