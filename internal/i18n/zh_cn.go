@@ -61,6 +61,8 @@ var zhCN = map[string]string{
 	"Clear Recent Searches":           "清空搜索历史",
 	"Clear the Cache":                 "清除缓存",
 	"Close":                           "关闭",
+	"Hide Lyrics":                     "隐藏歌词",
+	"Show Lyrics":                     "显示歌词",
 	"Clear Search":                    "清除搜索",
 	"Comments":                        "评论",
 	"Control playback from the notch": "刘海里也能控制播放",

@@ -88,7 +88,11 @@ const swipeRest = 140 * time.Millisecond
 
 // npCover shows the cover of tr, size across, which the pointer tilts,
 // drags and flings.
-func (a *app) npCover(c *ui.Context, tr *music.Track, art *artwork, size float32) {
+func (a *app) npCover(c *ui.Context, tr *music.Track, art *artwork, size float32, opacity ...float32) {
+	alpha := float32(1)
+	if len(opacity) > 0 {
+		alpha = opacity[0]
+	}
 	cs, pl := &a.npCoverState, a.pl
 	far := size * 1.5 // where a cover flies off to
 	fling := func(dir int) {
@@ -220,7 +224,7 @@ func (a *app) npCover(c *ui.Context, tr *music.Track, art *artwork, size float32
 			scale *= 1.02
 		}
 		radius := a.npRadius(c, 16, size)
-		box := ui.Box(c).Fill().Radius(radius).Shadow(0, 30, 60, -12, ui.RGBA(0, 0, 0, 0.55))
+		box := ui.Box(c).Fill().Radius(radius).Shadow(0, 30, 60, -12, ui.RGBA(0, 0, 0, 0.55*alpha))
 		if math.Abs(float64(rx))+math.Abs(float64(ry)) > 0.05 {
 			// In depth only while tilted: flat, it draws as an image does.
 			box.RotateX(rx).RotateY(ry).Perspective(900)
@@ -233,20 +237,20 @@ func (a *app) npCover(c *ui.Context, tr *music.Track, art *artwork, size float32
 		missing := tr.Album.ImageURL == "" || (art != nil && art.failed)
 		switch {
 		case missing:
-			box.LinearGradient(ui.LinearGradient{Angle: 160, Oklab: true, From: ui.RGB(84, 84, 92), To: ui.RGB(38, 38, 44)}).
-				Border(1, white.Alpha(0.07)).Center()
+			box.LinearGradient(ui.LinearGradient{Angle: 160, Oklab: true, From: ui.RGB(84, 84, 92).Alpha(alpha), To: ui.RGB(38, 38, 44).Alpha(alpha)}).
+				Border(1, white.Alpha(0.07*alpha)).Center()
 		case in < 1:
-			box.Background(white.Alpha(0.08))
+			box.Background(white.Alpha(0.08 * alpha))
 		}
 		box.Children(func() {
 			if missing {
-				ui.Icon(c, iconNote).Size(size*0.3, size*0.3).TextColor(white.Alpha(0.32))
+				ui.Icon(c, iconNote).Size(size*0.3, size*0.3).TextColor(white.Alpha(0.32 * alpha))
 			}
-			artImage(c, bitmap(art), radius, in)
+			artImage(c, bitmap(art), radius, in*alpha)
 			if shine > 0.01 {
 				ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).PassThrough().Draw(func(p *ui.Painter, r ui.Rect) {
 					glareShader().Draw(p, r, shader.Options{Radius: radius, Uniforms: map[string]any{
-						"Center": [2]float32{gx, gy}, "Core": r.W * 0.16, "Sigma": r.W * 0.225, "Alpha": 0.26 * shine,
+						"Center": [2]float32{gx, gy}, "Core": r.W * 0.16, "Sigma": r.W * 0.225, "Alpha": 0.26 * shine * alpha,
 					}})
 				})
 			}

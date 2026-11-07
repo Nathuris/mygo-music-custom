@@ -65,6 +65,15 @@ func TestNowPlayingFrameBudget(t *testing.T) {
 	tt.SetPreferences(ui.Preferences{ReduceMotion: true})
 	a.nowPlaying, a.npPane = true, paneLyrics
 	lyricsFrames := framesAt(a, tt, 12*time.Second)
+	tt.SetPreferences(ui.Preferences{})
+	a.settings.HideLyrics = true
+	// The pointer's cover tilt settles after the column stops moving.
+	settled(tt)
+	if n := framesAt(a, tt, 12*time.Second); n > 3 {
+		t.Errorf("the centered player after moving: %d frames a second", n)
+	}
+	a.settings.HideLyrics = false
+	tt.SetPreferences(ui.Preferences{ReduceMotion: true})
 	a.npPane = paneWall
 	if n := framesAt(a, tt, 12*time.Second); n > lyricsFrames+3 {
 		t.Errorf("the wall, still: %d frames a second, the lyrics %d", n, lyricsFrames)

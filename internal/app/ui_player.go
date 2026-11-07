@@ -311,22 +311,34 @@ func (a *app) volumeSlider(c *ui.Context, color, track ui.Color, width float32) 
 
 // transport is the row of controls: shuffle, previous, play, next, repeat.
 func (a *app) transport(c *ui.Context, color, dim, on ui.Color, size float32) {
+	a.transportButtons(c, color, dim, on, size, false)
+}
+
+// transportButtons matches the individual buttons between Now Playing's
+// layouts, so their spacing and size change without overlapping copies.
+func (a *app) transportButtons(c *ui.Context, color, dim, on ui.Color, size float32, shared bool) {
 	pl := a.pl
+	button := func(e ui.Element, id string) ui.Element {
+		if shared {
+			return npControl(e, "transport/"+id, true)
+		}
+		return e
+	}
 	ui.Row(c).Gap(size * 0.5).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
 		shuffle := dim
 		if pl.Shuffle() {
 			shuffle = on
 		}
-		if iconButton(c.Key("shuffle"), iconShuffle, size*0.62, shuffle, T("Shuffle")).Clicked() {
+		if button(iconButton(c.Key("shuffle"), iconShuffle, size*0.62, shuffle, T("Shuffle")), "shuffle").Clicked() {
 			pl.ToggleShuffle()
 		}
-		if iconButton(c.Key("prev"), iconPrev, size*0.85, color, T("Previous")).Clicked() {
+		if button(iconButton(c.Key("prev"), iconPrev, size*0.85, color, T("Previous")), "previous").Clicked() {
 			pl.Prev()
 		}
-		if playButton(c.Key("play"), pl.Playing(), size*1.25, color).Clicked() {
+		if button(playButton(c.Key("play"), pl.Playing(), size*1.25, color), "play").Clicked() {
 			pl.TogglePlay()
 		}
-		if iconButton(c.Key("next"), iconNext, size*0.85, color, T("Next")).Clicked() {
+		if button(iconButton(c.Key("next"), iconNext, size*0.85, color, T("Next")), "next").Clicked() {
 			pl.Next()
 		}
 		repeat, ricon := dim, iconRepeat
@@ -336,7 +348,7 @@ func (a *app) transport(c *ui.Context, color, dim, on ui.Color, size float32) {
 		case player.RepeatOne:
 			repeat, ricon = on, iconRepeat1
 		}
-		if iconButton(c.Key("repeat"), ricon, size*0.62, repeat, T("Repeat")).Clicked() {
+		if button(iconButton(c.Key("repeat"), ricon, size*0.62, repeat, T("Repeat")), "repeat").Clicked() {
 			pl.CycleRepeat()
 		}
 	})

@@ -91,6 +91,30 @@ func TestNowPlayingFrame(t *testing.T) {
 	tt.Advance(2 * time.Second)
 	tt.Frame()
 	saveFrame(t, dir, "now-playing.png", tt.Image())
+	motion := func(name string) {
+		var shots []image.Image
+		for range 12 {
+			shots = append(shots, tt.Image())
+			tt.Advance(60 * time.Millisecond)
+			tt.Frame()
+		}
+		saveFrame(t, dir, name, contactSheet(shots, 4))
+	}
+	if err := tt.Click("Hide Lyrics"); err != nil {
+		t.Fatal(err)
+	}
+	motion("now-playing-hide-lyrics-motion.png")
+	settled(tt)
+	saveFrame(t, dir, "now-playing-centered.png", tt.Image())
+	a.pl.SetLyrics(nil)
+	tt.Frame()
+	saveFrame(t, dir, "now-playing-instrumental-centered.png", tt.Image())
+	if err := tt.Click("Show Lyrics"); err != nil {
+		t.Fatal(err)
+	}
+	motion("now-playing-show-lyrics-motion.png")
+	settled(tt)
+	saveFrame(t, dir, "now-playing-instrumental-lyrics.png", tt.Image())
 }
 
 // With MM_FRAMES set, saves Now Playing for a local song with no cover.

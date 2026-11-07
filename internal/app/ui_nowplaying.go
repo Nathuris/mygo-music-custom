@@ -22,6 +22,25 @@ var npSpring = ui.SpringOptions{Duration: 340 * time.Millisecond}
 // motion: it fades, in place.
 var npFade = ui.Animation{Duration: 200 * time.Millisecond, NonMotion: true}
 
+// npLayout eases into the move, carries the controls across, then lets
+// them slow to a stop without overshooting.
+var npLayout = ui.Animation{Duration: 420 * time.Millisecond, Ease: ui.CubicBezier(0.16, 0, 0.24, 1)}
+
+// npPage fades the contents of one pane into the next. The controls fly
+// above these fades, from their last visible bounds, through npControl.
+var npPage = ui.ElementTransition{Duration: 240 * time.Millisecond, Colors: true, Enter: &ui.Motion{}, Exit: &ui.Motion{}}
+
+type npPageID int
+type npControlID string
+
+func npControl(e ui.Element, id string, scale bool) ui.Element {
+	return e.Transition(ui.ElementTransition{Animation: &npLayout, Match: npControlID(id), Fly: true, ScaleContent: scale})
+}
+
+func npText(e ui.Element, id string) ui.Element {
+	return npControl(e, id, false).ContentTransition(ui.ContentTransition{Morph: true, Animation: &npLayout})
+}
+
 // npState tracks Now Playing opening and closing, and reports whether it is
 // open and whether it has come to rest, open or closed, as it last showed.
 // Call it once a build, before the window's content.
@@ -283,7 +302,7 @@ func (a *app) nowPlayingView(c *ui.Context) {
 	})
 }
 
-func (a *app) nowPlayingBody(c *ui.Context, tr *music.Track, art *artwork, accent ui.Color, w, h float32, pointerIn bool) {
+func (a *app) nowPlayingBodyLegacy(c *ui.Context, tr *music.Track, art *artwork, accent ui.Color, w, h float32, pointerIn bool) {
 	pl := a.pl
 	a.commentsFor(tr)
 	// An episode has what it is about and its captions in place of lyrics; a
@@ -320,106 +339,163 @@ func (a *app) nowPlayingBody(c *ui.Context, tr *music.Track, art *artwork, accen
 				}
 			})
 		})
-		if a.npPane == paneStage {
-			// The stage takes the whole view: the lyrics are the show, the
-			// controls a slim bar at the foot.
-			a.npRise(reveal(npTabsRow(c, w), pointerIn), 0).Children(func() {
-				a.paneTabs(c)
+		a.npRise(reveal(npTabsRow(c, w), pointerIn), 0).Children(func() {
+			a.paneTabs(c)
+			if a.npPane == paneStage {
 				a.stageStyleButton(c)
-			})
-			a.stage(c, tr, accent)
-			a.stageBar(c, tr, art, accent)
-			return
+			}
+		})
+		if a.npPane == paneLyrics {
+			a.npRise(reveal(ui.Row(c.Key("lyrics-toggle-row")).Absolute().Top(topBar(c)).Right(npSideX(w)).Height(npTabsHeight), pointerIn), 0).
+				Children(func() { a.lyricsToggle(c) })
 		}
 		if a.npPane == paneWall {
-			// The wall takes the whole view too, under the song playing.
-			a.wallPane(c, tr, art, accent, w, h, pointerIn)
+			ui.Column(c.Key(npPageID(paneWall))).Absolute().Top(0).Left(0).Right(0).Bottom(0).Transition(npPage).
+				Children(func() { a.wallPane(c, tr, art, accent, w, h, pointerIn) })
 			return
 		}
+		ui.Column(c.Key(npPageID(a.npPane))).Grow(1).Basis(0).MinHeight(0).Transition(npPage).Children(func() {
+			if a.npPane == paneStage {
+				// The stage takes the whole view: the lyrics are the show, the
+				// controls a slim bar at the foot.
+				a.stage(c, tr, accent)
+				a.stageBar(c, tr, art, accent)
+				return
+			}
+			side := float32(math.Min(float64(w)*0.36, 440))
+			// The cover leaves room above it for the tabs, starting as far
+			// under them as the wall's song does.
+			coverSize := min(side, h-436)
+			// The column is as wide as the cover, for the cover, what plays
+			// and the tabs over it to start at one edge, but wide enough for
+			// the controls.
+			side = max(coverSize, 280)
+			padX := npSideX(w)
+			centered := a.npPane == paneLyrics && a.settings.HideLyrics
+			body := ui.Row(c.Key("playback-body")).Grow(1).Basis(0).MinHeight(0).Gap(72).AlignItems(ui.Stretch)
+			target := float32(0)
+			if centered {
+				target = 1
+			}
+			center := body.AnimateTo("center", target, npLayout)
+			body.Padding(48, padX, 12, lerp(padX, (w-side)/2, center))
+			body.Children(func() {
+				var coverTop float32
+				// The whole column travels together, keeping the cover's layout
+				// bounds current for its flight to and from the player bar.
+				ui.Column(c.Key("playback")).Width(side).Justify(ui.Center).Gap(0).Children(func() {
+					coverTop = ui.Box(c.Key("cover-top")).Height(0).LayoutBounds().Y
+					// The cover flies out of the bar's as Now Playing opens.
+					cover := ui.Box(c.Key("cover-morph")).Size(coverSize, coverSize).AlignSelf(ui.Start).
+						Margin(0, 0, 0, (side-coverSize)/2*center)
+					a.npMorph(c, cover).Children(func() { a.npCover(c, tr, art, coverSize) })
 
-		side := float32(math.Min(float64(w)*0.36, 440))
-		// The cover leaves room above it for the tabs, starting as far
-		// under them as the wall's song does.
-		coverSize := min(side, h-436)
-		// The column is as wide as the cover, for the cover, what plays
-		// and the tabs over it to start at one edge, but wide enough for
-		// the controls.
-		side = max(coverSize, 280)
-		padX := npSideX(w)
-		a.npRise(reveal(npTabsRow(c, w), pointerIn), 0).Children(func() { a.paneTabs(c) })
-		ui.Row(c).Grow(1).Padding(0, padX, 44, padX).Gap(72).AlignItems(ui.Stretch).Children(func() {
-			var coverTop float32
-			ui.Column(c).Width(side).Justify(ui.Center).Gap(0).Children(func() {
-				coverTop = ui.Box(c.Key("cover-top")).Height(0).LayoutBounds().Y
-				// The cover flies out of the bar's as Now Playing opens.
-				a.npMorph(c, ui.Box(c.Key("cover-morph")).Size(coverSize, coverSize).AlignSelf(ui.Start)).Children(func() {
-					a.npCover(c, tr, art, coverSize)
-				})
-
-				a.npRise(ui.Row(c).Gap(8).AlignItems(ui.Center).Margin(36, 0, 18, 0), 1).Children(func() {
-					ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(4).Children(func() {
-						if r := pl.Radio(); r != "" {
-							a.radioChip(c, r)
-						}
-						ui.Text(c, tr.Name).FontSize(22).FontWeight(700).LetterSpacing(-0.3).SingleLine()
-						a.artistLinks(c, tr, white.Alpha(0.6), white, true).FontSize(15).SingleLine()
+					// Matched controls briefly take the stage's size. Reserve their
+					// normal space so the centered cover does not move with them.
+					infoHeight := float32(48)
+					if pl.Radio() != "" {
+						infoHeight += 24
+					}
+					// The controls can fly outside their slots during a pane change.
+					// Their enclosing column keeps its full height throughout it.
+					ui.Column(c.Key("controls-slot")).Height(infoHeight + 201).Shrink(0).Children(func() {
+						a.npRise(ui.Row(c).Height(infoHeight).Gap(8).AlignItems(ui.Center).Margin(36, 0, 18, 0), 1).Children(func() {
+							ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(4).Children(func() {
+								if r := pl.Radio(); r != "" {
+									a.radioChip(c, r)
+								}
+								npText(ui.Text(c, tr.Name).FontSize(22).FontWeight(700).LetterSpacing(-0.3).SingleLine(), "title")
+								npText(a.artistLinks(c, tr, white.Alpha(0.6), white, true).FontSize(15).SingleLine(), "artists")
+							})
+							npControl(a.likeButton(c.Key("like"), tr, 22, white.Alpha(0.7)), "like", true)
+							npControl(a.songMenu(c.Key("more"), tr, 22, white.Alpha(0.7)).Margin(0, -8, 0, 0), "more", true)
+						})
+						ui.Box(c.Key("progress-slot")).Height(16).Children(func() {
+							npControl(a.npRise(a.scrubber(c.Key("np-scrub"), &a.npScrub, white.Alpha(0.18), white.Alpha(0.9), 16, accent.Mix(white, 0.35)), 2), "progress", false)
+						})
+						// As tall with the quality's badge as without it: the badge goes
+						// while the next song loads, and the column would move with it.
+						a.npRise(ui.Row(c).Height(16).AlignItems(ui.Center), 2).Children(func() {
+							ui.Text(c, clock(pl.Position())).FontSize(11).FontFeatures("tnum").TextColor(white.Alpha(0.5))
+							ui.Spacer(c)
+							qualityBadge(c, pl.Stream())
+							ui.Spacer(c)
+							status := "-" + clock(pl.Duration()-pl.Position())
+							if pl.Loading() {
+								status = T("Buffering…")
+							}
+							ui.Text(c, status).FontSize(11).FontFeatures("tnum").TextColor(white.Alpha(0.5))
+						})
+						a.npRise(ui.Box(c).Height(51).Margin(14, 0, 18, 0), 3).Children(func() {
+							a.transportButtons(c, white, white.Alpha(0.45), accent, 28, true)
+						})
+						a.npRise(ui.Row(c).Justify(ui.Center), 4).Children(func() {
+							a.volumeSlider(c, white.Alpha(0.7), white.Alpha(0.18), 180)
+						})
 					})
-					a.likeButton(c.Key("like"), tr, 22, white.Alpha(0.7))
-					a.songMenu(c.Key("more"), tr, 22, white.Alpha(0.7)).Margin(0, -8, 0, 0)
 				})
-				a.npRise(a.scrubber(c.Key("np-scrub"), &a.npScrub, white.Alpha(0.18), white.Alpha(0.9), 16, accent.Mix(white, 0.35)), 2)
-				// As tall with the quality's badge as without it: the badge goes
-				// while the next song loads, and the column would move with it.
-				a.npRise(ui.Row(c).Height(16).AlignItems(ui.Center), 2).Children(func() {
-					ui.Text(c, clock(pl.Position())).FontSize(11).FontFeatures("tnum").TextColor(white.Alpha(0.5))
-					ui.Spacer(c)
-					qualityBadge(c, pl.Stream())
-					ui.Spacer(c)
-					status := "-" + clock(pl.Duration()-pl.Position())
-					if pl.Loading() {
-						status = T("Buffering…")
-					}
-					ui.Text(c, status).FontSize(11).FontFeatures("tnum").TextColor(white.Alpha(0.5))
-				})
-				a.npRise(ui.Box(c).Margin(14, 0, 18, 0), 3).Children(func() {
-					a.transport(c, white, white.Alpha(0.45), accent, 28)
-				})
-				a.npRise(ui.Row(c).Justify(ui.Center), 4).Children(func() {
-					a.volumeSlider(c, white.Alpha(0.7), white.Alpha(0.18), 180)
-				})
-			})
 
-			pane := ui.Column(c.Key("pane")).Grow(1).Basis(0).MinWidth(0)
-			a.npRise(pane, 2)
-			pane.Children(func() {
-				// The pane starts level with the cover beside it, but below the
-				// tabs, which start level with the pane's top: they come and go
-				// with the pointer, so they sit out of the flow, never over it.
-				b := pane.LayoutBounds()
-				if b.H > 0 && coverTop > 0 {
-					if top := max(coverTop-b.Y, npTabsHeight+8); top != a.npPaneTop {
-						a.npPaneTop = top
-						c.AnimationFrame()
+				if centered && center == 1 {
+					return
+				}
+				pane := ui.Column(c.Key("pane")).Grow(1).Basis(0).MinWidth(0)
+				a.npRise(pane, 2)
+				// Clear the lyrics early in the move, before the cover reaches
+				// their space, and bring them back as it leaves that space.
+				pane.Opacity(1 - smoothstep(0, 0.55, center)).IgnoreInput(centered).Disabled(centered).AccessHidden(centered)
+				pane.Children(func() {
+					// The pane starts level with the cover beside it, but below the
+					// tabs, which start level with the pane's top: they come and go
+					// with the pointer, so they sit out of the flow, never over it.
+					b := pane.LayoutBounds()
+					if b.H > 0 && coverTop > 0 {
+						if top := max(coverTop-b.Y, npTabsHeight+8); top != a.npPaneTop {
+							a.npPaneTop = top
+							c.AnimationFrame()
+						}
+					} else {
+						c.AnimationFrame() // not laid out yet: the next frame places it
 					}
-				} else {
-					c.AnimationFrame() // not laid out yet: the next frame places it
-				}
-				ui.Box(c).Height(a.npPaneTop)
-				switch a.npPane {
-				case paneLyrics:
-					a.lyricsPane(c, tr, h)
-				case paneComments:
-					a.commentsPane(c, tr)
-				case paneShow:
-					a.showPane(c, tr)
-				case paneCaptions:
-					a.captionsPane(c, tr, h)
-				default:
-					a.queuePane(c)
-				}
+					ui.Box(c).Height(a.npPaneTop)
+					switch a.npPane {
+					case paneLyrics:
+						a.lyricsPane(c, tr, h)
+					case paneComments:
+						a.commentsPane(c, tr)
+					case paneShow:
+						a.showPane(c, tr)
+					case paneCaptions:
+						a.captionsPane(c, tr, h)
+					default:
+						a.queuePane(c)
+					}
+				})
 			})
 		})
 	}
+}
+
+// lyricsToggle hides the lyrics beside the cover, or brings them back,
+// keeping the choice for the next song and the next launch.
+func (a *app) lyricsToggle(c *ui.Context) {
+	label, bg, fg := T("Hide Lyrics"), white.Alpha(0.14), white
+	if a.settings.HideLyrics {
+		label, bg, fg = T("Show Lyrics"), white.Alpha(0.06), white.Alpha(0.7)
+	}
+	b := ui.ButtonBase(c.Key("lyrics-toggle")).Padding(6, 12).Gap(6).Radius(999).
+		AlignItems(ui.Center).Label(label).Tooltip(label)
+	if b.Hovered() {
+		bg = white.Alpha(0.2)
+	}
+	b.Background(b.AnimateColor("bg", bg, ui.Animation{Duration: 120 * time.Millisecond})).TextColor(fg)
+	b.Children(func() {
+		ui.Icon(c, iconLyrics).Size(14, 14)
+		ui.Text(c, label).FontSize(13).FontWeight(600)
+	})
+	b.OnClick(func() {
+		a.settings.HideLyrics = !a.settings.HideLyrics
+		a.settings.save()
+	})
 }
 
 // npMaxWidth is how wide the cover and the pane beside it go, at most.
@@ -552,7 +628,7 @@ func qualityBadge(c *ui.Context, st *music.Stream) {
 func (a *app) stageBar(c *ui.Context, tr *music.Track, art *artwork, accent ui.Color) {
 	pl := a.pl
 	ui.Column(c).Padding(0, 48, 28, 48).Gap(10).Children(func() {
-		a.npRise(a.scrubber(c.Key("stage-scrub"), &a.npScrub, white.Alpha(0.18), white.Alpha(0.9), 14, accent.Mix(white, 0.35)), 2)
+		npControl(a.npRise(a.scrubber(c.Key("stage-scrub"), &a.npScrub, white.Alpha(0.18), white.Alpha(0.9), 14, accent.Mix(white, 0.35)), 2), "progress", false)
 		ui.Row(c).Gap(14).AlignItems(ui.Center).Children(func() {
 			ui.Row(c).Grow(1).Basis(0).MinWidth(0).Gap(12).AlignItems(ui.Center).Children(func() {
 				if bmp := bitmap(art); bmp != nil {
@@ -564,14 +640,14 @@ func (a *app) stageBar(c *ui.Context, tr *music.Track, art *artwork, accent ui.C
 				// rest of Now Playing does.
 				a.npRise(ui.Row(c).Shrink(1).MinWidth(0).Gap(12).AlignItems(ui.Center), 3).Children(func() {
 					ui.Column(c).Shrink(1).MinWidth(0).Gap(2).Children(func() {
-						ui.Text(c, tr.Name).FontSize(14).FontWeight(700).SingleLine()
-						a.artistLinks(c, tr, white.Alpha(0.55), white).FontSize(12).SingleLine()
+						npText(ui.Text(c, tr.Name).FontSize(14).FontWeight(700).SingleLine(), "title")
+						npText(a.artistLinks(c, tr, white.Alpha(0.55), white).FontSize(12).SingleLine(), "artists")
 					})
-					a.likeButton(c.Key("like"), tr, 17, white.Alpha(0.6))
-					a.songMenu(c.Key("more"), tr, 17, white.Alpha(0.6)).Margin(0, 0, 0, -10)
+					npControl(a.likeButton(c.Key("like"), tr, 17, white.Alpha(0.6)), "like", true)
+					npControl(a.songMenu(c.Key("more"), tr, 17, white.Alpha(0.6)).Margin(0, 0, 0, -10), "more", true)
 				})
 			})
-			a.npRise(ui.Row(c), 3).Children(func() { a.transport(c, white, white.Alpha(0.45), white, 22) })
+			a.npRise(ui.Row(c), 3).Children(func() { a.transportButtons(c, white, white.Alpha(0.45), white, 22, true) })
 			a.npRise(ui.Row(c).Grow(1).Basis(0).MinWidth(0).Justify(ui.End), 4).Children(func() {
 				ui.Text(c, clock(pl.Position())+" / "+clock(pl.Duration())).FontSize(11.5).FontFeatures("tnum").TextColor(white.Alpha(0.5))
 			})

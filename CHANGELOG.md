@@ -2,6 +2,17 @@
 
 All notable changes to MyGo Music are written down here. Versions follow [Semantic Versioning](https://semver.org).
 
+## [0.1.22] - 2026-11-07
+
+### Added
+
+- Now Playing can hide lyrics and center the cover and playback controls, with the choice remembered between sessions.
+- The lyrics, stage and queue crossfade as you switch, while playback controls move between their layouts.
+
+### Fixed
+
+- The cover no longer jumps as it fades between the lyrics and stage views.
+
 ## [0.1.21] - 2026-11-07
 
 ### Added

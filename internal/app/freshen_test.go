@@ -39,7 +39,9 @@ func TestReopenedPlaylistLoadsAnew(t *testing.T) {
 	if id := <-asked; id != "10" {
 		t.Fatalf("asked for playlist %q", id)
 	}
-	runPost(t, ch)
+	// A like-status answer can arrive first; wait for the playlist's own
+	// refresh, or this checked the old list and failed under load.
+	until(t, ch, func() bool { return !a.library.freshPl["10"] })
 	tt.Frame()
 	if _, ok := tt.Find("新歌"); !ok {
 		t.Error("the song added elsewhere didn't show")
