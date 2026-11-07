@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -38,5 +39,29 @@ func TestNowPlayingVolumeValueFollowsInput(t *testing.T) {
 	tt.Frame()
 	if math.Abs(a.volume-0.8) > 0.01 || !tt.HasText("80%") {
 		t.Fatalf("volume after unmuting: %v, texts: %v", a.volume, tt.Texts())
+	}
+	// At full volume the percent sign previously wrapped onto another line.
+	tt.Press(r.X+r.W*0.8, y)
+	tt.Move(r.X+r.W+10, y)
+	tt.Release(r.X+r.W+10, y)
+	tt.Frame()
+	if a.volume < 0.99 || !tt.HasText("100%") {
+		t.Fatalf("volume at maximum: %v, texts: %v", a.volume, tt.Texts())
+	}
+}
+
+// With MM_FRAMES set, saves both lyrics layouts at several volume levels.
+func TestNowPlayingVolumeFrames(t *testing.T) {
+	dir := framesDir(t)
+	for _, hidden := range []bool{false, true} {
+		for _, volume := range []float64{0, 0.5, 1} {
+			a := newTestApp()
+			a.pl.Cue(framesTracks(a))
+			a.settings.HideLyrics = hidden
+			a.nowPlaying, a.npPane, a.volume = true, paneLyrics, volume
+			tt := ui.NewTester(a.view, 1180, 780)
+			settled(tt)
+			saveFrame(t, dir, fmt.Sprintf("volume-%v-%d.png", hidden, int(volume*100)), tt.Image())
+		}
 	}
 }

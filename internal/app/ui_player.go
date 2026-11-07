@@ -289,7 +289,9 @@ func (a *app) muteButton(c *ui.Context, color ui.Color) {
 // volumeSlider centers the track between the mute button and volume value.
 func (a *app) volumeSlider(c *ui.Context, color, track ui.Color, width float32) {
 	ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
-		a.muteButton(c, color)
+		ui.Box(c).Width(48).Height(32).Shrink(0).Center().Children(func() {
+			a.muteButton(c, color)
+		})
 		s := ui.SliderBase(c.Key("volume"), &a.volume, 0, 1).Width(width).Height(16).FocusRing(false).Label(T("Volume"))
 		if s.Changed() {
 			a.pl.SetVolume(a.volume)
@@ -306,8 +308,8 @@ func (a *app) volumeSlider(c *ui.Context, color, track ui.Color, width float32) 
 			p.Fill(ui.Rect{X: r.X, Y: y, W: r.W, H: thick}, track, thick/2)
 			p.Fill(ui.Rect{X: r.X, Y: y, W: max(thick, r.W*v), H: thick}, color, thick/2)
 		})
-		ui.Textf(c, "%d%%", int(a.volume*100+0.5)).Width(32).FontSize(11).FontWeight(500).
-			FontFeatures("tnum").TextAlign(ui.Center).TextColor(color)
+		ui.Textf(c, "%d%%", int(a.volume*100+0.5)).Width(48).Shrink(0).FontSize(11).FontWeight(500).
+			FontFeatures("tnum").SingleLine().TextAlign(ui.Center).TextColor(color)
 	})
 }
 

@@ -8,6 +8,10 @@ All notable changes to MyGo Music are written down here. Versions follow [Semant
 
 - Now Playing shows the volume percentage beside a centered volume slider.
 
+### Fixed
+
+- The volume percentage stays on one line at 100%.
+
 ## [0.1.22] - 2026-11-07
 
 ### Added
