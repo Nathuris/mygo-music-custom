@@ -7,7 +7,6 @@ import (
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
-	"mygo-music/internal/lyrics"
 	"mygo-music/internal/music"
 )
 
@@ -93,9 +92,8 @@ func (l wallLayout) shows(i int, off ui.Point, w, h, top, foot float32) bool {
 	return x >= 0 && x+wallTile <= w && y >= top && y+wallTile <= h-foot
 }
 
-// wallPane fills Now Playing with the wall, the song playing over it and
-// the controls along its foot.
-func (a *app) wallPane(c *ui.Context, tr *music.Track, art *artwork, accent ui.Color, w, h float32, pointerIn bool) {
+// wallBackground draws the draggable cover wall beneath the shared playback controls.
+func (a *app) wallBackground(c *ui.Context, w, h float32) {
 	// The song starts under the tabs, which are over its left.
 	top := topBar(c) + npTabsHeight
 	songH := min(max(h*0.36, 200), 320)
@@ -122,68 +120,6 @@ func (a *app) wallPane(c *ui.Context, tr *music.Track, art *artwork, accent ui.C
 		Draw(func(p *ui.Painter, r ui.Rect) {
 			a.backdropOver(p, ui.Rect{W: w, H: h}, r, func(t float32) float32 { return 0.7 * smoothstep(0, 0.9, t) })
 		})
-	a.wallSong(c, tr, art, top, songH)
-	a.wallBar(c, accent)
-}
-
-// wallSong is the song playing, over the wall: its cover, which breathes
-// as Now Playing's does, its name, and the line of its lyrics sung, with
-// the next.
-func (a *app) wallSong(c *ui.Context, tr *music.Track, art *artwork, top, h float32) {
-	pl := a.pl
-	ui.Row(c.Key("wall-song")).Absolute().Top(top).Left(0).Right(0).Height(h).Padding(0, 72).Gap(36).
-		Justify(ui.Center).AlignItems(ui.Center).Children(func() {
-		// Not Now Playing's cover, which the pointer tilts and flings: here
-		// the wall is what the pointer moves.
-		size := h - 48
-		radius := a.npRadius(c, 16, size)
-		// It flies out of the bar's cover as Now Playing opens, and
-		// breathes within: two boxes, for the breath to scale it about its
-		// middle, where the flight scales it about its corner.
-		fly := ui.Box(c.Key(coverKey{tr.ID, 0})).Size(size, size).Shrink(0)
-		a.npMorph(c, fly).Children(func() {
-			cov := ui.Box(c).Fill().Radius(radius).Shadow(0, 24, 50, -12, ui.RGBA(0, 0, 0, 0.55))
-			scale := float32(1)
-			if !pl.Playing() {
-				scale = 0.92
-			}
-			a.npBreathe(cov, scale)
-			in := artIn(cov, bitmap(art))
-			if in < 1 {
-				cov.Background(white.Alpha(0.08))
-			}
-			cov.Children(func() { artImage(c, bitmap(art), radius, in) })
-		})
-		a.npRise(ui.Column(c).Width(440).Shrink(1).MinWidth(0).Gap(4), 1).Children(func() {
-			if r := pl.Radio(); r != "" {
-				a.radioChip(c, r)
-			}
-			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, tr.Name).FontSize(26).FontWeight(800).LetterSpacing(-0.4).SingleLine().Shrink(1).MinWidth(0)
-				a.likeButton(c.Key("like"), tr, 20, white.Alpha(0.7))
-				a.songMenu(c.Key("more"), tr, 20, white.Alpha(0.7)).Margin(0, -8, 0, 0)
-			})
-			a.artistLinks(c, tr, white.Alpha(0.6), white, true).FontSize(14).SingleLine()
-			lines, _ := pl.Lyrics()
-			if len(lines) == 0 {
-				return
-			}
-			pos := pl.Position()
-			cur := lyrics.Index(lines, pos)
-			// Redraw as the next line begins.
-			if pl.Playing() && cur+1 < len(lines) {
-				c.After(lines[cur+1].At - pos + 20*time.Millisecond)
-			}
-			sung := ""
-			if cur >= 0 {
-				sung = lines[cur].Text
-			}
-			ui.Text(c, sung).FontSize(17).FontWeight(700).TextColor(white.Alpha(0.85)).MaxLines(2).Margin(14, 0, 0, 0)
-			if cur+1 < len(lines) {
-				ui.Text(c, lines[cur+1].Text).FontSize(14).FontWeight(600).TextColor(white.Alpha(0.38)).SingleLine()
-			}
-		})
-	})
 }
 
 // wall lays the queue's covers out in an area from y down to the
@@ -363,24 +299,6 @@ func (a *app) wallTile(c *ui.Context, tr *music.Track, i int, x float32, playing
 		if playing {
 			ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Radius(12).Border(2, white.Alpha(0.9)).PassThrough()
 		}
-	})
-}
-
-// wallBar is the controls along the foot of the wall: where the song is,
-// and the transport between how far it has gone and how far it has left.
-func (a *app) wallBar(c *ui.Context, accent ui.Color) {
-	pl := a.pl
-	a.npRise(ui.Column(c.Key("wall-bar")).Absolute().Left(0).Right(0).Bottom(0).Padding(0, 48, 24, 48).Gap(10), 3).Children(func() {
-		a.scrubber(c.Key("wall-scrub"), &a.npScrub, white.Alpha(0.18), white.Alpha(0.9), 14, accent.Mix(white, 0.35))
-		ui.Row(c).Gap(14).AlignItems(ui.Center).Children(func() {
-			ui.Row(c).Grow(1).Basis(0).MinWidth(0).Children(func() {
-				ui.Text(c, clock(pl.Position())).FontSize(11.5).FontFeatures("tnum").TextColor(white.Alpha(0.5))
-			})
-			a.transport(c, white, white.Alpha(0.45), white, 22)
-			ui.Row(c).Grow(1).Basis(0).MinWidth(0).Justify(ui.End).Children(func() {
-				ui.Text(c, "-"+clock(pl.Duration()-pl.Position())).FontSize(11.5).FontFeatures("tnum").TextColor(white.Alpha(0.5))
-			})
-		})
 	})
 }
 

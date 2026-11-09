@@ -304,13 +304,12 @@ func (a *app) nowPlayingView(c *ui.Context) {
 
 func (a *app) nowPlayingBodyLegacy(c *ui.Context, tr *music.Track, art *artwork, accent ui.Color, w, h float32, pointerIn bool) {
 	pl := a.pl
-	a.commentsFor(tr)
 	// An episode has what it is about and its captions in place of lyrics; a
-	// song, lyrics in place of those. Comments are for a source that has them.
+	// song, lyrics in place of those.
 	switch episode := tr.ShowID != ""; {
 	case episode && a.npPane == paneWall:
 		a.npPane = paneQueue
-	case episode && (a.npPane == paneLyrics || a.npPane == paneStage):
+	case episode && (a.npPane == paneLyrics || a.npPane == paneCover):
 		a.npPane = paneShow
 		if a.captionsOn() {
 			a.npPane = paneCaptions
@@ -319,9 +318,6 @@ func (a *app) nowPlayingBodyLegacy(c *ui.Context, tr *music.Track, art *artwork,
 		a.npPane = paneShow
 	case !episode && (a.npPane == paneShow || a.npPane == paneCaptions):
 		a.npPane = a.lyricsPaneChosen()
-	}
-	if a.npPane == paneComments && !a.trackLib(tr).can("comments") {
-		a.npPane = paneQueue
 	}
 	if a.npPane != paneQueue {
 		a.queueAt = -1
@@ -332,7 +328,8 @@ func (a *app) nowPlayingBodyLegacy(c *ui.Context, tr *music.Track, art *artwork,
 	{
 		// The top strip drags the window; the chevron closes the view,
 		// showing only while the pointer is in the window, as the pane tabs do.
-		a.npRise(ui.Row(c).Height(topBar(c)).Justify(ui.Center).AlignItems(ui.Center).DragWindow(), 0).Children(func() {
+		closeStrip := ui.Row(c).Height(topBar(c)).Justify(ui.Center).AlignItems(ui.Center).DragWindow()
+		a.npRise(closeStrip, 0).Children(func() {
 			reveal(ui.Box(c.Key("close-reveal")), pointerIn).Children(func() {
 				if iconButton(c.Key("close"), iconDown, 22, white.Alpha(0.7), T("Close")).Clicked() {
 					a.nowPlaying = false
@@ -341,27 +338,8 @@ func (a *app) nowPlayingBodyLegacy(c *ui.Context, tr *music.Track, art *artwork,
 		})
 		a.npRise(reveal(npTabsRow(c, w), pointerIn), 0).Children(func() {
 			a.paneTabs(c)
-			if a.npPane == paneStage {
-				a.stageStyleButton(c)
-			}
 		})
-		if a.npPane == paneLyrics {
-			a.npRise(reveal(ui.Row(c.Key("lyrics-toggle-row")).Absolute().Top(topBar(c)).Right(npSideX(w)).Height(npTabsHeight), pointerIn), 0).
-				Children(func() { a.lyricsToggle(c) })
-		}
-		if a.npPane == paneWall {
-			ui.Column(c.Key(npPageID(paneWall))).Absolute().Top(0).Left(0).Right(0).Bottom(0).Transition(npPage).
-				Children(func() { a.wallPane(c, tr, art, accent, w, h, pointerIn) })
-			return
-		}
 		ui.Column(c.Key(npPageID(a.npPane))).Grow(1).Basis(0).MinHeight(0).Transition(npPage).Children(func() {
-			if a.npPane == paneStage {
-				// The stage takes the whole view: the lyrics are the show, the
-				// controls a slim bar at the foot.
-				a.stage(c, tr, accent)
-				a.stageBar(c, tr, art, accent)
-				return
-			}
 			side := float32(math.Min(float64(w)*0.36, 440))
 			// The cover leaves room above it for the tabs, starting as far
 			// under them as the wall's song does.
@@ -390,8 +368,7 @@ func (a *app) nowPlayingBodyLegacy(c *ui.Context, tr *music.Track, art *artwork,
 						Margin(0, 0, 0, (side-coverSize)/2*center)
 					a.npMorph(c, cover).Children(func() { a.npCover(c, tr, art, coverSize) })
 
-					// Matched controls briefly take the stage's size. Reserve their
-					// normal space so the centered cover does not move with them.
+					// Reserve the controls' space so changing content does not move the cover.
 					infoHeight := float32(48)
 					if pl.Radio() != "" {
 						infoHeight += 24
@@ -427,7 +404,7 @@ func (a *app) nowPlayingBodyLegacy(c *ui.Context, tr *music.Track, art *artwork,
 							ui.Text(c, status).FontSize(11).FontFeatures("tnum").TextColor(white.Alpha(0.5))
 						})
 						a.npRise(ui.Box(c).Height(51).Margin(14, 0, 18, 0), 3).Children(func() {
-							a.transportButtons(c, white, white.Alpha(0.45), accent, 28, true)
+							a.transportButtons(c, white, white.Alpha(0.35), white, 28, true)
 						})
 						a.npRise(ui.Row(c).Justify(ui.Center), 4).Children(func() {
 							a.volumeSlider(c, white.Alpha(0.7), white.Alpha(0.18), 180)
@@ -460,8 +437,6 @@ func (a *app) nowPlayingBodyLegacy(c *ui.Context, tr *music.Track, art *artwork,
 					switch a.npPane {
 					case paneLyrics:
 						a.lyricsPane(c, tr, h)
-					case paneComments:
-						a.commentsPane(c, tr)
 					case paneShow:
 						a.showPane(c, tr)
 					case paneCaptions:
@@ -473,29 +448,6 @@ func (a *app) nowPlayingBodyLegacy(c *ui.Context, tr *music.Track, art *artwork,
 			})
 		})
 	}
-}
-
-// lyricsToggle hides the lyrics beside the cover, or brings them back,
-// keeping the choice for the next song and the next launch.
-func (a *app) lyricsToggle(c *ui.Context) {
-	label, bg, fg := T("Hide Lyrics"), white.Alpha(0.14), white
-	if a.settings.HideLyrics {
-		label, bg, fg = T("Show Lyrics"), white.Alpha(0.06), white.Alpha(0.7)
-	}
-	b := ui.ButtonBase(c.Key("lyrics-toggle")).Padding(6, 12).Gap(6).Radius(999).
-		AlignItems(ui.Center).Label(label).Tooltip(label)
-	if b.Hovered() {
-		bg = white.Alpha(0.2)
-	}
-	b.Background(b.AnimateColor("bg", bg, ui.Animation{Duration: 120 * time.Millisecond})).TextColor(fg)
-	b.Children(func() {
-		ui.Icon(c, iconLyrics).Size(14, 14)
-		ui.Text(c, label).FontSize(13).FontWeight(600)
-	})
-	b.OnClick(func() {
-		a.settings.HideLyrics = !a.settings.HideLyrics
-		a.settings.save()
-	})
 }
 
 // npMaxWidth is how wide the cover and the pane beside it go, at most.
@@ -530,12 +482,10 @@ func reveal(e ui.Element, shown bool) ui.Element {
 	return e.AnimatePose(pose, ui.Animation{Duration: 200 * time.Millisecond})
 }
 
-// lyricsPaneChosen is the pane of lyrics the listener chose last: what
-// the app starts on, before the player is made. Now Playing shows what an
-// episode is about in place of either.
+// lyricsPaneChosen is the song pane used when opening Now Playing.
 func (a *app) lyricsPaneChosen() int {
-	if a.settings.LyricsStage {
-		return paneStage
+	if a.settings.HideLyrics {
+		return paneCover
 	}
 	return paneLyrics
 }
@@ -543,9 +493,8 @@ func (a *app) lyricsPaneChosen() int {
 // The panes of Now Playing.
 const (
 	paneLyrics = iota
+	paneCover
 	paneQueue
-	paneStage
-	paneComments
 	paneShow
 	paneCaptions
 	paneWall
@@ -569,10 +518,7 @@ func (a *app) npTabs() []npTab {
 		}
 		tabs = append(tabs, npTab{paneQueue, T("Up Next")})
 	} else {
-		tabs = []npTab{{paneLyrics, T("Lyrics")}, {paneStage, T("Stage")}, {paneQueue, T("Up Next")}, {paneWall, T("Wall")}}
-	}
-	if tr != nil && a.trackLib(tr).can("comments") {
-		tabs = append(tabs, npTab{paneComments, T("Comments")})
+		tabs = []npTab{{paneCover, T("Cover")}, {paneLyrics, T("Lyrics")}, {paneQueue, T("Up Next")}, {paneWall, T("Wall")}}
 	}
 	return tabs
 }
@@ -583,13 +529,15 @@ func (a *app) paneTabs(c *ui.Context) {
 	}
 }
 
-// choosePane shows pane i in Now Playing, remembering lyrics or the stage,
-// whichever was chosen, for the next song.
+// choosePane shows pane i in Now Playing.
 func (a *app) choosePane(i int) {
 	a.npPane = i
-	if (i == paneLyrics || i == paneStage) && a.settings.LyricsStage != (i == paneStage) {
-		a.settings.LyricsStage = i == paneStage
-		a.settings.save()
+	if i == paneCover || i == paneLyrics {
+		centered := i == paneCover
+		if a.settings.HideLyrics != centered {
+			a.settings.HideLyrics = centered
+			a.settings.save()
+		}
 	}
 }
 
@@ -623,38 +571,6 @@ func qualityBadge(c *ui.Context, st *music.Stream) {
 		Padding(1, 6).Radius(4).Border(1, ui.Hex("#f5d58a").Alpha(0.55))
 }
 
-// stageBar is the slim bar along the foot of the stage: what plays, where
-// it is, and the controls.
-func (a *app) stageBar(c *ui.Context, tr *music.Track, art *artwork, accent ui.Color) {
-	pl := a.pl
-	ui.Column(c).Padding(0, 48, 28, 48).Gap(10).Children(func() {
-		npControl(a.npRise(a.scrubber(c.Key("stage-scrub"), &a.npScrub, white.Alpha(0.18), white.Alpha(0.9), 14, accent.Mix(white, 0.35)), 2), "progress", false)
-		ui.Row(c).Gap(14).AlignItems(ui.Center).Children(func() {
-			ui.Row(c).Grow(1).Basis(0).MinWidth(0).Gap(12).AlignItems(ui.Center).Children(func() {
-				if bmp := bitmap(art); bmp != nil {
-					cov := a.npMorph(c, ui.Box(c.Key(tr.ID)).Size(44, 44))
-					in := artIn(cov, bmp)
-					cov.Children(func() { artImage(c, bmp, a.npRadius(c, 8, 44), in) })
-				}
-				// All but the cover, which flies to the bar's, fade as the
-				// rest of Now Playing does.
-				a.npRise(ui.Row(c).Shrink(1).MinWidth(0).Gap(12).AlignItems(ui.Center), 3).Children(func() {
-					ui.Column(c).Shrink(1).MinWidth(0).Gap(2).Children(func() {
-						npText(ui.Text(c, tr.Name).FontSize(14).FontWeight(700).SingleLine(), "title")
-						npText(a.artistLinks(c, tr, white.Alpha(0.55), white).FontSize(12).SingleLine(), "artists")
-					})
-					npControl(a.likeButton(c.Key("like"), tr, 17, white.Alpha(0.6)), "like", true)
-					npControl(a.songMenu(c.Key("more"), tr, 17, white.Alpha(0.6)).Margin(0, 0, 0, -10), "more", true)
-				})
-			})
-			a.npRise(ui.Row(c), 3).Children(func() { a.transportButtons(c, white, white.Alpha(0.45), white, 22, true) })
-			a.npRise(ui.Row(c).Grow(1).Basis(0).MinWidth(0).Justify(ui.End), 4).Children(func() {
-				ui.Text(c, clock(pl.Position())+" / "+clock(pl.Duration())).FontSize(11.5).FontFeatures("tnum").TextColor(white.Alpha(0.5))
-			})
-		})
-	})
-}
-
 func (a *app) paneTab(c *ui.Context, i int, label string) {
 	b := ui.ButtonBase(c.Key(i)).Padding(6, 14).Radius(999).FocusRing(false).Label(label)
 	bg, fg := ui.Transparent, white.Alpha(0.55)
@@ -665,17 +581,7 @@ func (a *app) paneTab(c *ui.Context, i int, label string) {
 	}
 	b.Background(b.AnimateColor("bg", bg, ui.Animation{Duration: 120 * time.Millisecond}))
 	b.Children(func() {
-		if i != paneComments {
-			ui.Text(c, label).FontSize(13).FontWeight(600).TextColor(fg)
-			return
-		}
-		// The count rolls as it changes, from one song's to the next.
-		n, text := a.commentCount(), ""
-		if n > 0 {
-			text = " " + count(n)
-		}
 		ui.Text(c, label).FontSize(13).FontWeight(600).TextColor(fg)
-		rollCount(c, &a.tabCount, n, text, fg)
 	})
 	if b.Clicked() {
 		a.choosePane(i)
@@ -690,8 +596,6 @@ func (a *app) lyricsPane(c *ui.Context, tr *music.Track, h float32) {
 		if loaded {
 			col.Center()
 		}
-		dim, _ := a.quietShown(c, col, tr, lines, loaded)
-		quietUnder(col, dim)
 		col.Children(func() {
 			if !loaded {
 				lyricsSkeleton(c, npShimmer(c))
@@ -699,7 +603,6 @@ func (a *app) lyricsPane(c *ui.Context, tr *music.Track, h float32) {
 			}
 			ui.Text(c, T("No lyrics. Enjoy the music.")).FontSize(24).FontWeight(700).TextColor(white.Alpha(0.4))
 		})
-		a.quietCard(c, dim, h*0.18)
 		return
 	}
 	pos := pl.Position()
@@ -715,22 +618,14 @@ func (a *app) lyricsPane(c *ui.Context, tr *music.Track, h float32) {
 	lag := a.lyricGlide.step(c, &a.lyricScroll)
 
 	scroll := ui.Scroll(c.Key("lyrics")).Grow(1).TrackScroll(&a.lyricScroll).Padding(0, 8, h*0.5, 0)
-	dim, quiet := a.quietShown(c, scroll, tr, lines, loaded)
-	if dim > 0.98 {
-		// Under the hot comment, gone, not drawn faint.
-		scroll.Invisible()
-	}
-	defer a.quietCard(c, dim, h*0.18)
-	a.timedLines(c, scroll, lines, pos, cur, lag, linesStyle{size: 30, weight: 800, lineHeight: 1.25, quiet: quiet}, nil)
+	a.timedLines(c, scroll, lines, pos, cur, lag, linesStyle{size: 30, weight: 800, lineHeight: 1.25}, nil)
 }
 
-// linesStyle is how timedLines sets its lines: the size, weight and
-// leading of their type; quiet nearly hides them, under a hot comment.
+// linesStyle is how timedLines sets its lines: the size, weight and leading.
 type linesStyle struct {
 	size       float32
 	weight     int
 	lineHeight float32
-	quiet      bool
 }
 
 // timedLines fills scroll with lines that follow the track playing at
@@ -751,10 +646,6 @@ func (a *app) timedLines(c *ui.Context, scroll ui.Element, lines []lyrics.Line, 
 					alpha = 1
 				} else if line.Hovered() {
 					alpha = 0.55
-				}
-				if st.quiet {
-					// Nearly gone under a hot comment.
-					alpha *= quietFaded
 				}
 				if line.Hovered() {
 					line.Background(white.Alpha(0.06))

@@ -182,25 +182,6 @@ func (a *app) playlistHeaderSkeleton(c *ui.Context, s shimmer) {
 
 // Skeletons of the now playing view.
 
-// commentSkeleton is n of commentRow's comments.
-func commentSkeleton(c *ui.Context, s shimmer, n int) {
-	for i := range n {
-		ui.Row(c.Key(i)).Padding(12).Gap(12).AlignItems(ui.Start).Children(func() {
-			s.bone(c, 17).Size(34, 34)
-			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(6).Children(func() {
-				s.text(c, 13, 1.3).Width(60 + boneWidth(i))
-				ui.Column(c).Children(func() {
-					s.text(c, 15, 1.55).WidthPercent(94)
-					if i%3 != 2 {
-						s.text(c, 15, 1.55).WidthPercent(boneWidth(i + 2))
-					}
-				})
-				s.text(c, 11.5, 1.3).Width(96)
-			})
-		})
-	}
-}
-
 // lyricsSkeleton is lyricsPane's lines while they load.
 func lyricsSkeleton(c *ui.Context, s shimmer) {
 	ui.Column(c).Gap(6).Padding(0, 8, 0, 0).Children(func() {
@@ -208,15 +189,6 @@ func lyricsSkeleton(c *ui.Context, s shimmer) {
 			ui.Box(c.Key(i)).Padding(10, 12).Children(func() {
 				s.text(c, 30, 1.25).WidthPercent(boneWidth(i+1) * 0.9)
 			})
-		}
-	})
-}
-
-// stageSkeleton is stageLine's words while the lyrics load.
-func stageSkeleton(c *ui.Context, s shimmer, f, w float32) {
-	ui.Row(c).Wrap().Justify(ui.Center).AlignItems(ui.Center).Padding(0, w*0.1).Gap(f * 0.35).Children(func() {
-		for i, n := range []float32{2.2, 1.3, 3.1, 1.8} {
-			s.bone(c.Key(i), f*0.22).Size(f*n, f*0.85)
 		}
 	})
 }

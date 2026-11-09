@@ -35,7 +35,6 @@ var capabilities = []string{
 	"followArtist", "saveAlbum", "savedAlbums",
 	"shows", "show", "subscribeShow",
 	"stations", "stationNext",
-	"comments", "likeComment", "postComment",
 	"lyrics", "stream",
 }
 

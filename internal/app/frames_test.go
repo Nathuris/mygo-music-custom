@@ -100,7 +100,7 @@ func TestNowPlayingFrame(t *testing.T) {
 		}
 		saveFrame(t, dir, name, contactSheet(shots, 4))
 	}
-	if err := tt.Click("Hide Lyrics"); err != nil {
+	if err := tt.Click("Cover"); err != nil {
 		t.Fatal(err)
 	}
 	motion("now-playing-hide-lyrics-motion.png")
@@ -109,12 +109,63 @@ func TestNowPlayingFrame(t *testing.T) {
 	a.pl.SetLyrics(nil)
 	tt.Frame()
 	saveFrame(t, dir, "now-playing-instrumental-centered.png", tt.Image())
-	if err := tt.Click("Show Lyrics"); err != nil {
+	if err := tt.Click("Lyrics"); err != nil {
 		t.Fatal(err)
 	}
 	motion("now-playing-show-lyrics-motion.png")
 	settled(tt)
 	saveFrame(t, dir, "now-playing-instrumental-lyrics.png", tt.Image())
+}
+
+// With MM_FRAMES set, saves the cover's song credits and lyrics at different window sizes.
+func TestCoverCreditsFrames(t *testing.T) {
+	dir := framesDir(t)
+	for _, height := range []int{580, 780, 1000} {
+		a := newTestApp()
+		tracks := framesTracks(a)
+		tracks[0].Artists = append(tracks[0].Artists, music.Artist{Name: "Another Artist"})
+		a.pl.Cue(tracks)
+		a.pl.SetLyrics(lyrics.Build("[00:00.00]The sky goes green at the edges", "[00:00.00]天边泛起了绿光"))
+		a.pl.Hold(5 * time.Second)
+		a.nowPlaying, a.npPane = true, paneCover
+		tt := ui.NewTester(a.view, 1180, height)
+		settled(tt)
+		saveFrame(t, dir, fmt.Sprintf("cover-credits-%d.png", height), tt.Image())
+	}
+	a := newTestApp()
+	tracks := framesTracks(a)
+	tracks[0].Name = "A Very Long Song Name That Keeps Going and Going and Going and Going and Going"
+	tracks[0].Artists = []music.Artist{{Name: "An Extremely Long Artist Name"}, {Name: "Another Very Long Artist Name"}}
+	a.pl.Cue(tracks)
+	a.pl.SetLyrics(lyrics.Build("[00:00.00]A long line that goes on and on as the sky turns green and everyone stops and looks at the stars above the horizon tonight", "[00:00.00]一条很长的翻译，讲述人们停下来欣赏天空和地平线上的星光"))
+	a.pl.Hold(5 * time.Second)
+	a.nowPlaying, a.npPane = true, paneCover
+	tt := ui.NewTester(a.view, 880, 580)
+	settled(tt)
+	saveFrame(t, dir, "cover-credits-long.png", tt.Image())
+}
+
+// With MM_FRAMES set, saves the cover credits as a lyric appears and leaves.
+func TestCoverCreditsMotionFrames(t *testing.T) {
+	dir := framesDir(t)
+	for _, height := range []int{580, 780} {
+		a := newTestApp()
+		a.pl.Cue(framesTracks(a))
+		a.pl.SetLyrics(lyrics.Build("[00:10.00]The sky goes green at the edges", "[00:10.00]天边泛起了绿光"))
+		a.pl.Hold(5 * time.Second)
+		a.nowPlaying, a.npPane = true, paneCover
+		tt := ui.NewTester(a.view, 1180, height)
+		settled(tt)
+		for step, pos := range []time.Duration{11 * time.Second, 5 * time.Second} {
+			a.pl.Hold(pos)
+			for i := range 9 {
+				tt.Frame()
+				saveFrame(t, dir, fmt.Sprintf("cover-credits-motion-%d-%d-%d.png", height, step, i), tt.Image())
+				tt.Advance(60 * time.Millisecond)
+			}
+			settled(tt)
+		}
+	}
 }
 
 // With MM_FRAMES set, saves Now Playing for a local song with no cover.

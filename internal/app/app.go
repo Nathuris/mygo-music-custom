@@ -125,7 +125,7 @@ type app struct {
 	npHeld      bool    // whether the pointer presses on it, to pull it
 	npStill     bool    // whether it comes and goes in place, sliding or fading, rather than out of the bar's cover
 	npFrom      ui.Rect // the player bar's cover, which it grows out of
-	npPane      int     // paneLyrics, paneQueue, paneStage, paneComments or paneShow
+	npPane      int     // paneCover, paneLyrics, paneQueue, paneShow or paneWall
 	npPaneTop   float32 // how far the cover beside the pane starts below its top
 	lyricScroll ui.ScrollState
 	lyricGlide  lyricGlide
@@ -133,8 +133,6 @@ type app struct {
 	lyricTrack  string
 	queueList   ui.ListState
 	queueAt     int // the row of the queue pane last scrolled to, -1 while it is hidden
-	comments    commentState
-	tabCount    rollState // the count on the comments' tab, as it rolls
 
 	radioStarting string // the radio asked for its first songs, or ""
 	stationAt     int    // which of a few stations their switch has chosen
@@ -153,7 +151,6 @@ type app struct {
 	npArt                 *artwork      // the cover whose colors Now Playing shows
 	npCoverState          coverState    // the cover of Now Playing, as it is tilted and flicked
 	wallState             wallState     // the wall of the queue's covers, as it is dragged
-	quiet                 quietState    // the quiet parts of the song playing, for its top comments
 	sig                   playerSig
 	quitting              bool
 
@@ -342,6 +339,9 @@ func Run() error {
 		// Before the window: on Windows it lays out its content as it is
 		// made, and the view asks the player what plays.
 		a.art = newArtCache(a.post)
+		if dir, err := mygo.App.Path(mygo.PathCache); err == nil {
+			a.art.disk = newArtDiskCache(filepath.Join(dir, "artwork-v1"))
+		}
 		a.pl = player.New(a.post)
 		a.pl.Quiet = func(fn func()) { mygo.RunOnMain(fn) }
 		a.pl.Source = a.sourceByID

@@ -55,6 +55,7 @@ type artCache struct {
 	sources map[string]*artSource
 	sem     chan struct{}
 	pixels  *pixelBudget // of the covers decoding at once
+	disk    *artDiskCache
 	post    func(func())
 	now     func() time.Time
 	size    int // the bytes the covers in art keep
@@ -231,16 +232,54 @@ func (c *artCache) load(key string, l *artLoad) {
 		// kept their data, megabytes each as sources give them.
 		c.sem <- struct{}{}
 		defer func() { <-c.sem }()
+		diskKey, cacheable := "", false
+		if c.disk != nil {
+			diskKey, cacheable = artDiskKey(key)
+		}
+		decodeCached := func(data []byte) bool {
+			l.pixels = coverPixels(data)
+			took := c.pixels.take(l.pixels)
+			l.bmp, l.img, l.size, l.err = artOf(data, px)
+			c.pixels.give(took)
+			if l.err != nil {
+				c.disk.remove(diskKey)
+				return false
+			}
+			l.tint = dominantColor(l.img)
+			return true
+		}
+		if cacheable {
+			if data := c.disk.read(diskKey); data != nil && decodeCached(data) {
+				return
+			}
+		}
 		s.once.Do(func() { s.data, s.err = music.Fetch(s.url) })
 		if l.err = s.err; l.err != nil {
+			// An old cover is better than a blank one while offline. It is
+			// still refreshed from the source the next time it is loaded.
+			if cacheable {
+				if data := c.disk.readFile(diskKey, true); data != nil && decodeCached(data) {
+					return
+				}
+				l.err = s.err
+			}
 			return
 		}
 		l.pixels = coverPixels(s.data)
 		took := c.pixels.take(l.pixels)
-		l.bmp, l.img, l.size, l.err = artOf(s.data, px)
+		var data []byte
+		l.bmp, l.img, data, l.err = artOfData(s.data, px)
+		l.size = len(data)
 		c.pixels.give(took)
 		if l.err == nil {
 			l.tint = dominantColor(l.img)
+			if cacheable {
+				// A sign-in can change a source's headers while the fetch is
+				// running; do not save its answer under the old credentials.
+				if current, ok := artDiskKey(key); ok && current == diskKey {
+					c.disk.put(diskKey, data)
+				}
+			}
 		}
 	})
 }
@@ -341,25 +380,32 @@ const artRelease = 2 * time.Second
 // is kept smaller: a file's embedded cover can be thousands of pixels across.
 // Its bitmap is made only of the smaller copy, never of the cover as it came.
 func artOf(b []byte, px int) (*ui.Bitmap, image.Image, int, error) {
+	bmp, img, data, err := artOfData(b, px)
+	return bmp, img, len(data), err
+}
+
+// artOfData also returns the encoded bitmap, so the disk cache can keep the
+// resized image without decoding or encoding it a second time.
+func artOfData(b []byte, px int) (*ui.Bitmap, image.Image, []byte, error) {
 	b = stillCover(b)
 	img, err := decodeImage(b)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, nil, err
 	}
 	if size := img.Bounds().Size(); px > 0 && max(size.X, size.Y) > px*3/2 {
 		if small, data, err := shrinkArt(img, px); err == nil {
 			bmp, err := ui.DecodeBitmap(data)
 			if err != nil {
-				return nil, nil, 0, err
+				return nil, nil, nil, err
 			}
-			return bmp, small, len(data), nil
+			return bmp, small, data, nil
 		}
 	}
 	bmp, err := ui.DecodeBitmap(b)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, nil, err
 	}
-	return bmp, img, len(b), nil
+	return bmp, img, b, nil
 }
 
 // fetchURL is the URL to fetch the cover a key of sized names from: one

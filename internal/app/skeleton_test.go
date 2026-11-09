@@ -28,16 +28,8 @@ var skeletonScenes = []struct {
 		a.route = route{page: pageSearch, src: "fake", query: "迷星叫", kind: music.SearchArtists}
 		a.searches[a.route] = &searchData{page: paged{loading: true}}
 	}},
-	{"comments", func(a *app) {
-		a.nowPlaying, a.npPane = true, paneComments
-		a.comments = commentState{track: "\x001", lib: a.library, id: "1", loading: true}
-	}},
-	{"more-comments", func(a *app) {
-		a.nowPlaying, a.npPane = true, paneComments
-		a.comments = commentState{track: "\x001", lib: a.library, id: "1", loading: true, loaded: true, total: 1, list: []music.Comment{{ID: "1", Text: "好听"}}}
-	}},
 	{"lyrics", func(a *app) { a.nowPlaying, a.npPane = true, paneLyrics }},
-	{"stage", func(a *app) { a.nowPlaying, a.npPane = true, paneStage }},
+	{"compact-lyrics", func(a *app) { a.nowPlaying, a.npPane, a.settings.HideLyrics = true, paneCover, true }},
 }
 
 func skeletonApp(set func(a *app)) *app {

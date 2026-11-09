@@ -50,6 +50,55 @@ func TestNowPlayingVolumeValueFollowsInput(t *testing.T) {
 	}
 }
 
+// Switching to the cover used to hide the volume control, making it impossible to adjust.
+func TestCoverVolumeRemainsAvailable(t *testing.T) {
+	for _, width := range []int{880, 1180, 1500} {
+		t.Run(fmt.Sprint(width), func(t *testing.T) {
+			a := newTestApp()
+			a.pl.Cue(framesTracks(a))
+			a.nowPlaying, a.npPane = true, paneLyrics
+			tt := ui.NewTester(a.view, width, 780)
+			settled(tt)
+			if err := tt.Click("Cover"); err != nil {
+				t.Fatal(err)
+			}
+			settled(tt)
+			r, ok := tt.Find("Volume")
+			if !ok {
+				t.Fatal("no volume slider on the cover")
+			}
+			x, y := r.X+r.W*0.7, r.Y+r.H/2
+			tt.Press(x, y)
+			tt.Release(x, y)
+			tt.Frame()
+			if math.Abs(a.volume-0.7) > 0.02 {
+				t.Fatalf("cover slider set volume to %v", a.volume)
+			}
+			if err := tt.Click("Mute"); err != nil {
+				t.Fatal(err)
+			}
+			tt.Frame()
+			if a.volume != 0 {
+				t.Fatalf("cover mute left volume at %v", a.volume)
+			}
+			if err := tt.Click("Mute"); err != nil {
+				t.Fatal(err)
+			}
+			tt.Frame()
+			if math.Abs(a.volume-0.7) > 0.02 {
+				t.Fatalf("cover unmute restored volume to %v", a.volume)
+			}
+			if err := tt.Click("Lyrics"); err != nil {
+				t.Fatal(err)
+			}
+			settled(tt)
+			if _, ok := tt.Find("Volume"); !ok || math.Abs(a.volume-0.7) > 0.02 {
+				t.Fatal("switching pages lost the volume control or its value")
+			}
+		})
+	}
+}
+
 // With MM_FRAMES set, saves both lyrics layouts at several volume levels.
 func TestNowPlayingVolumeFrames(t *testing.T) {
 	dir := framesDir(t)
@@ -59,6 +108,9 @@ func TestNowPlayingVolumeFrames(t *testing.T) {
 			a.pl.Cue(framesTracks(a))
 			a.settings.HideLyrics = hidden
 			a.nowPlaying, a.npPane, a.volume = true, paneLyrics, volume
+			if hidden {
+				a.npPane = paneCover
+			}
 			tt := ui.NewTester(a.view, 1180, 780)
 			settled(tt)
 			saveFrame(t, dir, fmt.Sprintf("volume-%v-%d.png", hidden, int(volume*100)), tt.Image())

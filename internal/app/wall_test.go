@@ -33,6 +33,34 @@ func wallApp(t *testing.T, n, at int) (*app, *ui.Tester) {
 	return a, tt
 }
 
+// The wall used to cover the top tabs and close button, trapping the listener.
+func TestWallNavigationAndClose(t *testing.T) {
+	a, tt := wallApp(t, 20, 0)
+	for _, tab := range []struct {
+		label string
+		pane  int
+	}{{"Cover", paneCover}, {"Lyrics", paneLyrics}, {"Up Next", paneQueue}} {
+		if err := tt.Click(tab.label); err != nil {
+			t.Fatal(err)
+		}
+		tt.Frame()
+		if a.npPane != tab.pane {
+			t.Fatalf("the wall blocked %s", tab.label)
+		}
+		if err := tt.Click("Wall"); err != nil {
+			t.Fatal(err)
+		}
+		settled(tt)
+	}
+	if err := tt.Click("Close"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.nowPlaying {
+		t.Fatal("the wall blocked the close button")
+	}
+}
+
 // find returns where the cover of the song named s shows, failing the
 // test if it is not built.
 func find(t *testing.T, tt *ui.Tester, s string) ui.Rect {

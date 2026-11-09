@@ -66,26 +66,17 @@ func TestNowPlayingFrameBudget(t *testing.T) {
 	a.nowPlaying, a.npPane = true, paneLyrics
 	lyricsFrames := framesAt(a, tt, 12*time.Second)
 	tt.SetPreferences(ui.Preferences{})
-	a.settings.HideLyrics = true
+	a.npPane, a.settings.HideLyrics = paneCover, true
 	// The pointer's cover tilt settles after the column stops moving.
 	settled(tt)
 	if n := framesAt(a, tt, 12*time.Second); n > 3 {
 		t.Errorf("the centered player after moving: %d frames a second", n)
 	}
-	a.settings.HideLyrics = false
+	a.npPane, a.settings.HideLyrics = paneLyrics, false
 	tt.SetPreferences(ui.Preferences{ReduceMotion: true})
 	a.npPane = paneWall
 	if n := framesAt(a, tt, 12*time.Second); n > lyricsFrames+3 {
 		t.Errorf("the wall, still: %d frames a second, the lyrics %d", n, lyricsFrames)
-	}
-	tt.SetPreferences(ui.Preferences{})
-	a.npPane = paneStage
-	a.settings.StageSparks = true
-	for _, s := range stageStyles {
-		a.settings.StageStyle = s.id
-		if n := framesAt(a, tt, 18*time.Second); n > 12 {
-			t.Errorf("the stage between lines, in %s: %d frames a second", s.label, n)
-		}
 	}
 }
 

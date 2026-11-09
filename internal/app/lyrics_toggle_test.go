@@ -24,7 +24,7 @@ func TestLyricsToggleRestoresLineSeeking(t *testing.T) {
 	a.nowPlaying, a.npPane = true, paneLyrics
 	tt := ui.NewTester(a.view, 1200, 800)
 	settled(tt)
-	if err := tt.Click("Hide Lyrics"); err != nil {
+	if err := tt.Click("Cover"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
@@ -32,7 +32,7 @@ func TestLyricsToggleRestoresLineSeeking(t *testing.T) {
 		t.Fatal("departing lyrics accepted a click")
 	}
 	settled(tt)
-	if err := tt.Click("Show Lyrics"); err != nil {
+	if err := tt.Click("Lyrics"); err != nil {
 		t.Fatal(err)
 	}
 	settled(tt)
@@ -91,7 +91,7 @@ func TestLyricsToggleCentersPlayback(t *testing.T) {
 				settle()
 				cover, progress := find("Album Cover"), find("Progress")
 				for range 2 {
-					click("Hide Lyrics")
+					click("Cover")
 					if !a.settings.HideLyrics {
 						t.Fatal("lyrics were not hidden")
 					}
@@ -101,8 +101,8 @@ func TestLyricsToggleCentersPlayback(t *testing.T) {
 							t.Errorf("%s is not centered: %+v", label, r)
 						}
 					}
-					if _, ok := tt.Find("First line"); ok {
-						t.Error("hidden lyrics still take input")
+					if err := tt.Click("First line"); err == nil {
+						t.Error("the compact lyric still takes input")
 					}
 					b, err := os.ReadFile(a.settings.path)
 					if err != nil {
@@ -112,7 +112,7 @@ func TestLyricsToggleCentersPlayback(t *testing.T) {
 					if err := json.Unmarshal(b, &saved); err != nil || !saved.HideLyrics {
 						t.Fatalf("hidden lyrics were not saved: %s, %v", b, err)
 					}
-					click("Show Lyrics")
+					click("Lyrics")
 					if a.settings.HideLyrics {
 						t.Fatal("lyrics were not restored")
 					}
@@ -129,7 +129,7 @@ func TestLyricsToggleCentersPlayback(t *testing.T) {
 						t.Fatal("toggling lyrics changed playback")
 					}
 				}
-				click("Hide Lyrics")
+				click("Cover")
 				click("Previous")
 				if a.pl.Current().ID != "2" || !a.settings.HideLyrics {
 					t.Fatal("centered playback did not keep its layout while changing songs")
@@ -163,22 +163,19 @@ func TestLyricsToggleDuringMove(t *testing.T) {
 		}
 		tt.Frame()
 	}
-	left, cover := find("Progress"), find("Album Cover")
-	click("Hide Lyrics")
+	left := find("Progress")
+	click("Cover")
 	tt.Advance(200 * time.Millisecond)
 	tt.Frame()
 	moving := find("Progress")
-	if moving.X <= left.X || moving.X+moving.W/2 >= 600 {
+	if moving.Y <= left.Y || moving.W <= left.W || moving.W >= 1104 {
 		t.Fatalf("the controls jumped instead of moving: %+v", moving)
-	}
-	if got := find("Album Cover"); math.Abs(float64((got.X-cover.X)-(moving.X-left.X))) > 1 {
-		t.Fatal("the cover moved separately from the controls")
 	}
 	click("Previous")
 	if a.pl.Current().ID != "2" {
 		t.Fatal("the moving controls did not take the click")
 	}
-	click("Show Lyrics")
+	click("Lyrics")
 	if got := find("Progress"); math.Abs(float64(got.X-moving.X)) > 1 {
 		t.Fatalf("reversing the move jumped from %v to %v", moving.X, got.X)
 	}

@@ -328,12 +328,24 @@ func (a *app) transportButtons(c *ui.Context, color, dim, on ui.Color, size floa
 		}
 		return e
 	}
-	ui.Row(c).Gap(size * 0.5).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
-		shuffle := dim
-		if pl.Shuffle() {
-			shuffle = on
+	modeButton := func(c *ui.Context, icon *ui.SVG, label string, active bool) ui.Element {
+		fg := dim
+		if active {
+			fg = on
 		}
-		if button(iconButton(c.Key("shuffle"), iconShuffle, size*0.62, shuffle, T("Shuffle")), "shuffle").Clicked() {
+		b := iconButton(c, icon, size*0.62, fg, label)
+		if active {
+			b.DrawOver(func(p *ui.Painter, r ui.Rect) {
+				const dot = float32(3.5)
+				p.Fill(ui.Rect{X: r.X + (r.W-dot)/2, Y: r.Y + r.H - dot - 1, W: dot, H: dot}, on, dot/2)
+			})
+		}
+		return b
+	}
+	ui.Row(c).Gap(size * 0.5).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
+		shuffle := modeButton(c.Key("shuffle"), iconShuffle, T("Shuffle"), pl.Shuffle()).
+			Role(ui.RoleToggleButton).Checked(pl.Shuffle())
+		if button(shuffle, "shuffle").Clicked() {
 			pl.ToggleShuffle()
 		}
 		if button(iconButton(c.Key("prev"), iconPrev, size*0.85, color, T("Previous")), "previous").Clicked() {
@@ -345,14 +357,14 @@ func (a *app) transportButtons(c *ui.Context, color, dim, on ui.Color, size floa
 		if button(iconButton(c.Key("next"), iconNext, size*0.85, color, T("Next")), "next").Clicked() {
 			pl.Next()
 		}
-		repeat, ricon := dim, iconRepeat
+		repeat, ricon, repeatLabel := false, iconRepeat, T("Repeat Off")
 		switch pl.Repeat() {
 		case player.RepeatAll:
-			repeat = on
+			repeat, repeatLabel = true, T("Repeat All")
 		case player.RepeatOne:
-			repeat, ricon = on, iconRepeat1
+			repeat, ricon, repeatLabel = true, iconRepeat1, T("Repeat One")
 		}
-		if button(iconButton(c.Key("repeat"), ricon, size*0.62, repeat, T("Repeat")), "repeat").Clicked() {
+		if button(modeButton(c.Key("repeat"), ricon, T("Repeat"), repeat).Description(repeatLabel).Tooltip(repeatLabel), "repeat").Clicked() {
 			pl.CycleRepeat()
 		}
 	})

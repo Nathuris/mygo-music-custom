@@ -266,32 +266,6 @@ func TestHiddenWithoutCapability(t *testing.T) {
 	}
 }
 
-// Now Playing has no Comments tab for a source without comments, and leaves the
-// comments for the queue if they were showing.
-func TestCommentsGoWithoutCapability(t *testing.T) {
-	asked := make(chan string, 1)
-	a := newTestApp()
-	fake(a).comments = func(track string, _ int) (*music.CommentPage, error) {
-		asked <- track
-		return &music.CommentPage{}, nil
-	}
-	without(a, "comments")
-	a.pl.Cue([]music.Track{song("7", "宝船")})
-	a.pl.SetLyrics(nil)
-	a.nowPlaying, a.npPane = true, paneComments
-	tt := ui.NewTester(a.view, 1200, 800)
-	settled(tt)
-	if _, ok := tt.Find("Comments"); ok {
-		t.Error("a Comments tab without comments")
-	}
-	if a.npPane != paneQueue {
-		t.Errorf("on pane %d", a.npPane)
-	}
-	if len(asked) > 0 {
-		t.Error("asked a source without comments for them")
-	}
-}
-
 // The menus of a playlist offer what the source can do of renaming and deleting,
 // and no menu at all without either.
 func TestPlaylistMenuGoesWithoutCapability(t *testing.T) {

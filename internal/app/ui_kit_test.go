@@ -26,7 +26,7 @@ func TestClockAndCount(t *testing.T) {
 		{i18n.Chinese, 123456789, "1.2亿"},
 	} {
 		i18n.SetLanguage(c.language)
-		if s := count(c.n); s != c.want {
+		if s := i18n.Count(c.n); s != c.want {
 			t.Errorf("%s: count(%d) = %q, want %q", c.language, c.n, s, c.want)
 		}
 	}

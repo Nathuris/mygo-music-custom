@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -74,12 +75,20 @@ func TestQueueStaysAsATrackIsPlayed(t *testing.T) {
 	}
 }
 
-// The app chooses Now Playing's pane before it makes the player: it
-// crashed on start when the choice asked the player what played.
+// An old stage preference opens lyrics before the player exists instead of a removed pane.
 func TestLyricsPaneBeforePlayer(t *testing.T) {
-	a := &app{settings: settings{LyricsStage: true}}
-	if pane := a.lyricsPaneChosen(); pane != paneStage {
+	a := &app{}
+	if err := json.Unmarshal([]byte(`{"lyricsStage":true}`), &a.settings); err != nil {
+		t.Fatal(err)
+	}
+	if pane := a.lyricsPaneChosen(); pane != paneLyrics {
 		t.Errorf("pane %d", pane)
+	}
+	if err := json.Unmarshal([]byte(`{"hideLyrics":true}`), &a.settings); err != nil {
+		t.Fatal(err)
+	}
+	if pane := a.lyricsPaneChosen(); pane != paneCover {
+		t.Errorf("saved cover preference chose pane %d", pane)
 	}
 }
 
@@ -129,16 +138,15 @@ func TestNowPlayingHoldsStillWithoutBadge(t *testing.T) {
 	}
 }
 
-// ⌘ and a number choose Now Playing's tab in that place, for a song and
-// for an episode, whose tabs are others: its last is the comments.
+// ⌘ and a number choose Now Playing's tabs for a song or an episode.
 func TestCmdNumberChoosesTab(t *testing.T) {
 	for _, c := range []struct {
 		track music.Track
 		keys  []int // from 1, 0 for the last tab
 		panes []int
 	}{
-		{song("1", "宝船"), []int{4, 2, 1}, []int{paneWall, paneStage, paneLyrics}},
-		{music.Track{ID: "2", Name: "节目", ShowID: "9", Duration: 200000}, []int{0, 1}, []int{paneComments, paneShow}},
+		{song("1", "宝船"), []int{4, 3, 2, 1}, []int{paneWall, paneQueue, paneLyrics, paneCover}},
+		{music.Track{ID: "2", Name: "节目", ShowID: "9", Duration: 200000}, []int{0, 1}, []int{paneQueue, paneShow}},
 	} {
 		a := newTestApp()
 		a.pl.Cue([]music.Track{c.track})
@@ -159,10 +167,7 @@ func TestCmdNumberChoosesTab(t *testing.T) {
 	}
 }
 
-// Now Playing's tabs stay where they are going from one pane to another,
-// and as the comments' count changes: the lyrics, the queue and the
-// comments had them over the pane, and the stage and the wall at the top
-// on the right, where a longer count pushed the others along.
+// Now Playing's tabs stay where they are going from one pane to another.
 func TestNowPlayingTabsStayPut(t *testing.T) {
 	a := newTestApp()
 	a.pl.Cue([]music.Track{song("1", "一")})
@@ -179,7 +184,7 @@ func TestNowPlayingTabsStayPut(t *testing.T) {
 	if !ok {
 		t.Fatal("no Lyrics tab")
 	}
-	for _, tab := range []string{"Stage", "Up Next", "Wall", "Lyrics"} {
+	for _, tab := range []string{"Up Next", "Wall", "Lyrics"} {
 		tt.Click(tab)
 		settle()
 		if a.npPane == paneLyrics && tab != "Lyrics" {
@@ -189,16 +194,7 @@ func TestNowPlayingTabsStayPut(t *testing.T) {
 			t.Errorf("on %s the Lyrics tab is at %v,%v, was at %v,%v", tab, r.X, r.Y, first.X, first.Y)
 		}
 	}
-	for _, pane := range []int{paneStage, paneLyrics} {
-		a.npPane = pane
-		a.comments.loaded, a.comments.total = true, 0
-		settle()
-		a.comments.total = 12345678
-		settle()
-		if r, _ := tt.Find("Lyrics"); r.X != first.X || r.Y != first.Y {
-			t.Errorf("in pane %d, with the count, the Lyrics tab is at %v,%v, was at %v,%v", pane, r.X, r.Y, first.X, first.Y)
-		}
-	}
+
 }
 
 // pullNowPlaying opens Now Playing on the queue and pulls it down from the

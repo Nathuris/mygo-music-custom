@@ -53,27 +53,13 @@ type settings struct {
 	// Smoke makes the progress bars comets trailing smoke as music plays,
 	// for a few percent of a core: the listener turns it on.
 	Smoke bool `json:"smoke"`
-	// LyricsStage shows lyrics on the stage, Folia's style, in Now
-	// Playing, rather than scrolling.
-	LyricsStage bool `json:"lyricsStage"`
-	// HideLyrics centers the cover and controls in the lyrics view, with
-	// the lyrics pane hidden.
+	// HideLyrics switches the lyrics view to the centered cover and current line.
 	HideLyrics bool `json:"hideLyrics,omitempty"`
-	// StageStyle is how the stage sets its lyrics (stageStyles): empty for
-	// Folia's classic, or the id of another of its visualizers.
-	StageStyle string `json:"stageStyle,omitempty"`
-	// StageSparks throws sparks off each word on the stage as it is sung,
-	// whatever its style.
-	StageSparks bool `json:"stageSparks,omitempty"`
 	// Volume is where the volume was left, from 0 to 1.
 	Volume float64 `json:"volume"`
 	// Normalize evens out the loudness of tracks, by what their source
 	// measured of each.
 	Normalize bool `json:"normalize"`
-	// HotComments shows a song's top comments in its quiet parts, in place of
-	// the lyrics (quietComment), for a source with comments: the listener
-	// turns it on.
-	HotComments bool `json:"hotComments"`
 	// Fog fills Now Playing's backdrop with fog of the cover's color,
 	// rising and swelling with the bass: an experiment the listener turns
 	// on.
