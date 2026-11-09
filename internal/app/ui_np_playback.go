@@ -123,23 +123,23 @@ func (a *app) compactLyrics(c *ui.Context, tr *music.Track, coverBottom, shown f
 	alpha := smoothstep(0.5, 1, shown)
 	ui.Column(c.Key("compact-credits")).Absolute().Top(creditsTop).Left(48).Right(48).
 		AlignItems(ui.Center).Gap(2 * scale).Opacity(alpha).IgnoreInput(true).Children(func() {
-		ui.Text(c, tr.Name).FontSize(32 * scale).FontWeight(600).LineHeight(1.15).
+		ui.Text(c, tr.Name).FontSize(32 * scale).FontWeight(400).LineHeight(1.15).
 			TextColor(white.Alpha(0.95)).TextAlign(ui.Center).MaxWidth(w - 96).SingleLine()
 		if artists := tr.ArtistNames(); artists != "" {
-			ui.Text(c, artists).FontSize(14 * scale).LineHeight(1.15).
+			ui.Text(c, artists).FontSize(14 * scale).FontWeight(400).LineHeight(1.15).
 				TextColor(white.Alpha(0.6)).TextAlign(ui.Center).MaxWidth(w - 96).SingleLine()
 		}
 	})
 	ui.Column(c.Key("compact-current-line")).Absolute().Top(creditsTop + creditsHeight + 8*scale).Left(48).Right(48).
 		Bottom(108).Center().Gap(4 * scale).Clip().Opacity(alpha).IgnoreInput(true).Children(func() {
 		if len(lines) == 0 && loaded {
-			ui.Text(c, T("No lyrics. Enjoy the music.")).FontSize(18 * scale).FontWeight(700).LineHeight(1.15).
+			ui.Text(c, T("No lyrics. Enjoy the music.")).FontSize(18 * scale).FontWeight(400).LineHeight(1.15).
 				TextColor(white.Alpha(0.55)).TextAlign(ui.Center)
 		} else if cur >= 0 {
-			ui.Text(c, lines[cur].Text).FontSize(18 * scale).FontWeight(700).LineHeight(1.15).
+			ui.Text(c, lines[cur].Text).FontSize(18 * scale).FontWeight(400).LineHeight(1.15).
 				TextColor(white.Alpha(0.8)).TextAlign(ui.Center).MaxWidth(w - 96)
 			if lines[cur].Translation != "" {
-				ui.Text(c, lines[cur].Translation).FontSize(14 * scale).LineHeight(1.15).
+				ui.Text(c, lines[cur].Translation).FontSize(14 * scale).FontWeight(400).LineHeight(1.15).
 					TextColor(white.Alpha(0.5)).TextAlign(ui.Center).MaxWidth(w - 96)
 			}
 		}
@@ -215,12 +215,10 @@ func (a *app) npPlaybackControls(c *ui.Context, tr *music.Track, art *artwork, a
 	volumeLeft := (w+transportWidth)/2 + 12
 	volumeSpace := w - 48 - max(80, timeWidth+12) - volumeLeft
 	coverVolumeWidth := min(130, max(32, volumeSpace-104))
-	volumeWidth := lerp(180, coverVolumeWidth, coverMix)
-	volumeRowWidth := lerp(side, coverVolumeWidth+104, coverMix)
-	volumeInactive := a.npPane == paneWall || wallMix >= 0.99
-	ui.Row(c.Key("volume-position")).Absolute().Left(lerp(x, volumeLeft, coverMix)).
-		Top(lerp(progressY+115, bottom+6, coverMix)).Width(volumeRowWidth).Justify(ui.Center).
-		Opacity(1 - wallMix).IgnoreInput(volumeInactive).AccessHidden(volumeInactive).
+	volumeWidth := lerp(180, coverVolumeWidth, compactMix)
+	volumeRowWidth := lerp(side, coverVolumeWidth+104, compactMix)
+	ui.Row(c.Key("volume-position")).Absolute().Left(lerp(x, volumeLeft, compactMix)).
+		Top(lerp(progressY+115, bottom+6, compactMix)).Width(volumeRowWidth).Justify(ui.Center).
 		Children(func() { a.volumeSlider(c, white.Alpha(0.7), white.Alpha(0.18), volumeWidth) })
 
 	small := ui.Box(c.Key("small-cover")).Absolute().Left(48).Top(bottom).Size(44, 44).Opacity(coverMix).IgnoreInput(true)

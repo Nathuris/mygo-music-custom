@@ -7,13 +7,14 @@ All notable changes to MyGo Music are written down here. Versions follow [Semant
 ### Changed
 
 - Now Playing has separate cover and lyrics tabs, with the song title and artist above the current lyrics on the cover page.
+- The cover page's song information and lyrics use a lighter typeface.
 - Shuffle and repeat states are easier to distinguish against cover colors.
 - Removed the stage and comments pages.
 
 ### Fixed
 
 - Now Playing's tabs and controls transition smoothly between pages, including the song picker.
-- The volume control remains visible on the cover page.
+- The volume control remains visible and usable on the cover and song picker pages.
 - Previously loaded network covers are cached locally, so they can appear sooner after restarting the app.
 
 ## [0.1.23] - 2026-11-08
