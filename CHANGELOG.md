@@ -2,6 +2,12 @@
 
 All notable changes to MyGo Music are written down here. Versions follow [Semantic Versioning](https://semver.org).
 
+## [0.1.27] - 2026-11-11
+
+### Fixed
+
+- Fixed cover artwork jumping sideways near the end of button and keyboard track transitions by correcting opacity-layer coordinates in MyGo. The original left/right animations and drag gestures are unchanged.
+
 ## [0.1.26] - 2026-11-10
 
 ### Changed
@@ -263,6 +269,7 @@ The first release: a native music player that plays your local files and gets ev
 [0.1.25]: https://github.com/Nathuris/mygo-music-custom/compare/v0.1.24...v0.1.25
 [0.1.21]: https://github.com/egoist/mygo-music/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/egoist/mygo-music/compare/v0.1.19...v0.1.20
+[0.1.27]: https://github.com/Nathuris/mygo-music-custom/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/Nathuris/mygo-music-custom/compare/v0.1.25...v0.1.26
 [0.1.19]: https://github.com/egoist/mygo-music/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/egoist/mygo-music/compare/v0.1.17...v0.1.18

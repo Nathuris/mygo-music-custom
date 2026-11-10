@@ -122,3 +122,53 @@ func TestCoverSlidesWithTheSong(t *testing.T) {
 		}
 	}
 }
+
+// The incoming cover keeps covering its visual bounds when its scale settles before its opacity.
+func TestCoverSlidePaintCoverage(t *testing.T) {
+	for _, pane := range []struct {
+		name string
+		id   int
+	}{{"Lyrics", paneLyrics}, {"Cover", paneCover}, {"Up Next", paneQueue}, {"Wall", paneWall}} {
+		t.Run(pane.name, func(t *testing.T) {
+			a := newTestApp()
+			a.pl.Cue(framesTracks(a))
+			a.pl.SetLyrics(nil)
+			a.pl.Hold(0)
+			a.nowPlaying, a.npPane = true, pane.id
+			tt := ui.NewTester(a.view, 1200, 800)
+			settled(tt)
+			if err := tt.Click("Next"); err != nil {
+				t.Fatal(err)
+			}
+			tt.Advance(320 * time.Millisecond)
+			for frame := range 40 {
+				tt.Advance(8 * time.Millisecond)
+				r, ok := tt.Find("Album Cover")
+				if !ok {
+					t.Fatal("no cover")
+				}
+				center := r.X + r.W/2
+				y := int(r.Y + r.H/2)
+				lo, hi := 1200, -1
+				img := tt.Image()
+				// The orange fixture distinguishes artwork coverage from the backdrop
+				// and the departing blue cover; no screenshot wording or layout is fixed.
+				for x := max(0, int(center-r.W*.65)); x < min(1200, int(center+r.W*.65)); x++ {
+					p := img.RGBAAt(x, y)
+					if p.R > 150 && p.G > 75 && float32(p.G) > float32(p.B)*1.1 {
+						lo = min(lo, x)
+						hi = max(hi, x)
+					}
+				}
+				// Group compositing used to displace the bitmap by ~20 px for one
+				// frame even though the element's reported center remained correct.
+				if hi < lo {
+					t.Fatal("the incoming artwork is not painted")
+				}
+				if offset := float32(lo+hi+1)/2 - center; offset < -2 || offset > 2 {
+					t.Fatalf("frame %d: painted cover is displaced %.2f px from its bounds", frame, offset)
+				}
+			}
+		})
+	}
+}
