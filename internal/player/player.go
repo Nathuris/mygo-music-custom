@@ -50,8 +50,10 @@ type Player struct {
 	order   []int // the queue's indices in play order: shuffled or not
 	at      int   // where in order the current track is, -1 for none
 	shuffle bool
-	repeat  RepeatMode
-	volume  float64
+	// randomize is nil in production; tests set it to make shuffle deterministic.
+	randomize func(int, func(int, int))
+	repeat    RepeatMode
+	volume    float64
 
 	// A radio goes on with the tracks its feed gives, as the queue nears
 	// its end, for as long as nothing else is played.
@@ -64,7 +66,7 @@ type Player struct {
 	track   *music.Track
 	out     *audio.Player
 	stream  stream
-	watch   *watched // stream, as out plays it
+	watch   *watched      // stream, as out plays it
 	info    *music.Stream // what the current track streams
 	fade    fader
 	gain    float64 // the current track's normalizing gain
@@ -185,6 +187,13 @@ func (p *Player) PlayQueue(tracks []music.Track, start int) {
 	p.playQueue(tracks, start, forward)
 }
 
+// PlayQueueShuffled replaces the queue with tracks, shuffles it and starts at
+// a random track that can play.
+func (p *Player) PlayQueueShuffled(tracks []music.Track) {
+	p.shuffle = true
+	p.playQueueWithShuffle(tracks, 0, forward, true)
+}
+
 // PlayTrack replaces the queue with tracks and plays the one at i, the
 // listener's pick: one that can't play stays, saying why, rather than another
 // playing in its place.
@@ -193,6 +202,10 @@ func (p *Player) PlayTrack(tracks []music.Track, i int) {
 }
 
 func (p *Player) playQueue(tracks []music.Track, start, dir int) {
+	p.playQueueWithShuffle(tracks, start, dir, false)
+}
+
+func (p *Player) playQueueWithShuffle(tracks []music.Track, start, dir int, randomStart bool) {
 	if len(tracks) == 0 {
 		return
 	}
@@ -204,7 +217,19 @@ func (p *Player) playQueue(tracks []music.Track, start, dir int) {
 		p.order[i] = i
 	}
 	if p.shuffle {
-		p.shuffleOrder(start)
+		if randomStart {
+			p.shuffleOrder(-1)
+			// The first playable song in a random order is uniformly chosen
+			// from the playable songs, while unavailable songs remain queued.
+			for i, index := range p.order {
+				if !p.queue[index].Unavailable {
+					p.order[0], p.order[i] = p.order[i], p.order[0]
+					break
+				}
+			}
+		} else {
+			p.shuffleOrder(start)
+		}
 		start = 0
 	}
 	p.loadSkipping(start, 0, dir, true, 0)
@@ -316,7 +341,14 @@ func (p *Player) appendTracks(tracks []music.Track) {
 
 // shuffleOrder shuffles the order, with first first.
 func (p *Player) shuffleOrder(first int) {
-	rand.Shuffle(len(p.order), func(i, j int) { p.order[i], p.order[j] = p.order[j], p.order[i] })
+	shuffle := p.randomize
+	if shuffle == nil {
+		shuffle = rand.Shuffle
+	}
+	shuffle(len(p.order), func(i, j int) { p.order[i], p.order[j] = p.order[j], p.order[i] })
+	if first < 0 {
+		return
+	}
 	for i, v := range p.order {
 		if v == first {
 			p.order[0], p.order[i] = p.order[i], p.order[0]

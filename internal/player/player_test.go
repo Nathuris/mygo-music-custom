@@ -20,6 +20,35 @@ func TestPlayEmptyQueue(t *testing.T) {
 	}
 }
 
+// Shuffle starts with a random playable track, not the playlist's first one.
+func TestPlayQueueShuffledStartsAtRandomPlayableTrack(t *testing.T) {
+	posts := make(chan func(), 16)
+	tracks := []music.Track{
+		{ID: "1", Unavailable: true},
+		{ID: "2"},
+		{ID: "3"},
+	}
+	p := &Player{
+		at:   -1,
+		post: func(fn func()) { posts <- fn },
+		randomize: func(n int, swap func(int, int)) {
+			if n > 1 {
+				swap(0, n-1)
+			}
+		},
+	}
+	defer p.stop()
+
+	p.PlayQueueShuffled(tracks)
+	order, at := p.PlayOrder()
+	if !p.Shuffle() {
+		t.Fatal("shuffle is off")
+	}
+	if at != 0 || p.Current() == nil || p.Current().ID != "3" || order[0] != 2 {
+		t.Fatalf("order %v at %d, current %+v; want track 3 first", order, at, p.Current())
+	}
+}
+
 // silence is a long song of nothing.
 type silence struct{}
 

@@ -2,6 +2,12 @@
 
 All notable changes to MyGo Music are written down here. Versions follow [Semantic Versioning](https://semver.org).
 
+## [0.1.25] - 2026-11-10
+
+### Fixed
+
+- Shuffle Play on playlists now starts from a random playable song instead of always starting from the first song.
+
 ## [0.1.24] - 2026-11-09
 
 ### Changed
@@ -241,6 +247,7 @@ All notable changes to MyGo Music are written down here. Versions follow [Semant
 
 The first release: a native music player that plays your local files and gets everything else from plugins.
 
+[0.1.25]: https://github.com/Nathuris/mygo-music-custom/compare/v0.1.24...v0.1.25
 [0.1.21]: https://github.com/egoist/mygo-music/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/egoist/mygo-music/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/egoist/mygo-music/compare/v0.1.18...v0.1.19

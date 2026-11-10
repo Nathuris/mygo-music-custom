@@ -29,6 +29,24 @@ func editTestApp() *app {
 	return a
 }
 
+// Clicking Shuffle on a playlist turns shuffle on and starts one of its songs.
+func TestShufflePlaylist(t *testing.T) {
+	a := editTestApp()
+	tt := ui.NewTester(a.view, 1200, 800)
+	tt.Frame()
+	if err := tt.Click("Shuffle"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !a.pl.Shuffle() {
+		t.Fatal("shuffle is off")
+	}
+	current := a.pl.Current()
+	if current == nil || (current.ID != "1" && current.ID != "2") {
+		t.Fatalf("current track is %+v, want one from the playlist", current)
+	}
+}
+
 // Choosing one of the listener's playlists from a song's menu adds the
 // song to it, and the menu doesn't offer the playlist the song is listed in.
 func TestAddSongToPlaylist(t *testing.T) {
