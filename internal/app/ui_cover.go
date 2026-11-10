@@ -216,7 +216,7 @@ func (a *app) npCover(c *ui.Context, tr *music.Track, art *artwork, size float32
 	wrap.Children(func() {
 		// The cover breathes: smaller while paused, a little nearer under
 		// the pointer.
-		scale := float32(1)
+		scale := float32(0.94)
 		if !pl.Playing() {
 			scale = 0.88
 		}

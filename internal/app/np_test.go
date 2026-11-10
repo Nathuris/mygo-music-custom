@@ -8,8 +8,45 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mygo-music/internal/lyrics"
 	"mygo-music/internal/music"
 )
+
+// Lyrics use the space above the cover in tall windows instead of sinking with it.
+func TestLyricsFillATallWindow(t *testing.T) {
+	var lines []lyrics.Line
+	for i := range 30 {
+		at := time.Duration(i) * 5 * time.Second
+		lines = append(lines, lyrics.Line{At: at, End: at + 5*time.Second, Text: fmt.Sprintf("第%02d句", i)})
+	}
+	for _, size := range [][2]int{{1200, 800}, {750, 1330}, {600, 1400}} {
+		a := newTestApp()
+		a.pl.Cue([]music.Track{song("1", "改变", "与非门")})
+		a.pl.SetLyrics(lines)
+		a.pl.Hold(77 * time.Second)
+		a.nowPlaying, a.npPane = true, paneLyrics
+		w, h := size[0], size[1]
+		tt := ui.NewTester(a.view, w, h)
+		settled(tt)
+		settled(tt)
+		tab, ok := tt.Find("Lyrics")
+		if !ok {
+			t.Fatal("no Lyrics tab")
+		}
+		lit, ok := tt.Find("第15句")
+		if !ok {
+			t.Fatalf("%dx%d: the current line isn't shown", w, h)
+		}
+		cover, _ := tt.Find("Album Cover")
+		top := max(cover.Y, tab.Y+tab.H+8)
+		if h > w {
+			top = tab.Y + tab.H + 8
+		}
+		if want := top + (float32(h)-top)*0.3; lit.Y > want+60 {
+			t.Errorf("%dx%d: the current line is at %v, want about %v", w, h, lit.Y, want)
+		}
+	}
+}
 
 // Now Playing closes as one layer, covering the page and the sidebar alike on
 // its way out, and is gone once it has.

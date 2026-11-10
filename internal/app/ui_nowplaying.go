@@ -343,7 +343,9 @@ func (a *app) nowPlayingBodyLegacy(c *ui.Context, tr *music.Track, art *artwork,
 			side := float32(math.Min(float64(w)*0.36, 440))
 			// The cover leaves room above it for the tabs, starting as far
 			// under them as the wall's song does.
-			coverSize := min(side, h-436)
+			coverRoom := h - 436
+			coverSize := min(side, coverRoom)
+			coverSunk := (coverRoom - coverSize) / 2
 			// The column is as wide as the cover, for the cover, what plays
 			// and the tabs over it to start at one edge, but wide enough for
 			// the controls.
@@ -426,7 +428,7 @@ func (a *app) nowPlayingBodyLegacy(c *ui.Context, tr *music.Track, art *artwork,
 					// with the pointer, so they sit out of the flow, never over it.
 					b := pane.LayoutBounds()
 					if b.H > 0 && coverTop > 0 {
-						if top := max(coverTop-b.Y, npTabsHeight+8); top != a.npPaneTop {
+						if top := max(coverTop-coverSunk-b.Y, npTabsHeight+8); top != a.npPaneTop {
 							a.npPaneTop = top
 							c.AnimationFrame()
 						}
@@ -636,6 +638,9 @@ type linesStyle struct {
 func (a *app) timedLines(c *ui.Context, scroll ui.Element, lines []lyrics.Line, pos time.Duration, cur int, lag float32, st linesStyle, foot func()) {
 	pl := a.pl
 	var active ui.Element
+	// Japanese lyrics are drawn in a Japanese font, kanji and kana alike;
+	// their translations in the app's language.
+	lang := lyrics.Lang(lines)
 	scroll.Children(func() {
 		ui.Column(c).Gap(6).Translate(0, -lag).Children(func() {
 			for i, l := range lines {
@@ -663,7 +668,7 @@ func (a *app) timedLines(c *ui.Context, scroll ui.Element, lines []lyrics.Line, 
 					text.Children(func() {
 						if on && len(l.Words) > 0 {
 							// The line sung lights up word by word as it is sung.
-							ui.RichText(c.Key("words")).FontSize(st.size).FontWeight(st.weight).LineHeight(st.lineHeight).LetterSpacing(-0.4).Children(func() {
+							ui.RichText(c.Key("words")).Lang(lang).FontSize(st.size).FontWeight(st.weight).LineHeight(st.lineHeight).LetterSpacing(-0.4).Children(func() {
 								for wi, wd := range l.Words {
 									lit := clamp01(float32((pos - wd.Start).Seconds() / max(0.05, (wd.End-wd.Start).Seconds())))
 									ui.Text(c.Key(wi), wd.Text).TextColor(white.Alpha(0.38 + 0.62*lit))
@@ -674,7 +679,7 @@ func (a *app) timedLines(c *ui.Context, scroll ui.Element, lines []lyrics.Line, 
 								c.After(40 * time.Millisecond)
 							}
 						} else {
-							ui.Text(c, l.Text).FontSize(st.size).FontWeight(st.weight).LineHeight(st.lineHeight).LetterSpacing(-0.4).TextColor(white)
+							ui.Text(c, l.Text).Lang(lang).FontSize(st.size).FontWeight(st.weight).LineHeight(st.lineHeight).LetterSpacing(-0.4).TextColor(white)
 						}
 						if l.Translation != "" {
 							ui.Text(c, l.Translation).FontSize(17).FontWeight(600).TextColor(white.Alpha(0.7))

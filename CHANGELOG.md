@@ -2,6 +2,19 @@
 
 All notable changes to MyGo Music are written down here. Versions follow [Semantic Versioning](https://semver.org).
 
+## [0.1.26] - 2026-11-10
+
+### Changed
+
+- The cover grows less when playback starts, while its paused size stays the same.
+- Japanese lyrics use a Japanese font, and Chinese text uses a consistent font on English Windows.
+
+### Fixed
+
+- Lyrics use the available space in tall Now Playing windows.
+- Plugin setup errors show the reason supplied by the plugin and clear after settings or permissions change.
+- Plugin identifiers and entry points cannot escape their folders, including through symlinks.
+
 ## [0.1.25] - 2026-11-10
 
 ### Fixed
@@ -250,6 +263,7 @@ The first release: a native music player that plays your local files and gets ev
 [0.1.25]: https://github.com/Nathuris/mygo-music-custom/compare/v0.1.24...v0.1.25
 [0.1.21]: https://github.com/egoist/mygo-music/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/egoist/mygo-music/compare/v0.1.19...v0.1.20
+[0.1.26]: https://github.com/Nathuris/mygo-music-custom/compare/v0.1.25...v0.1.26
 [0.1.19]: https://github.com/egoist/mygo-music/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/egoist/mygo-music/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/egoist/mygo-music/compare/v0.1.16...v0.1.17

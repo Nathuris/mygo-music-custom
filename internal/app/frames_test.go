@@ -117,6 +117,23 @@ func TestNowPlayingFrame(t *testing.T) {
 	saveFrame(t, dir, "now-playing-instrumental-lyrics.png", tt.Image())
 }
 
+// With MM_FRAMES set, saves Japanese lyrics and their translation in a tall window.
+func TestTallJapaneseLyricsFrame(t *testing.T) {
+	dir := framesDir(t)
+	a := newTestApp()
+	a.pl.Cue(framesTracks(a))
+	a.pl.SetLyrics(lyrics.Build(
+		"[00:00.00]遠い空を見上げて\n[00:05.00]静かな夜に歌う\n[00:10.00]光を探している\n[00:15.00]また明日会いましょう",
+		"[00:00.00]仰望遥远的天空\n[00:05.00]在寂静的夜晚歌唱\n[00:10.00]寻找那道光\n[00:15.00]明天再见吧",
+	))
+	a.pl.Hold(7 * time.Second)
+	a.nowPlaying, a.npPane = true, paneLyrics
+	tt := ui.NewTester(a.view, 750, 1330)
+	settled(tt)
+	settled(tt)
+	saveFrame(t, dir, "now-playing-tall-japanese.png", tt.Image())
+}
+
 // With MM_FRAMES set, saves the cover's song credits and lyrics at different window sizes.
 func TestCoverCreditsFrames(t *testing.T) {
 	dir := framesDir(t)

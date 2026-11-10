@@ -57,6 +57,9 @@ func (a *app) nowPlayingBody(c *ui.Context, tr *music.Track, art *artwork, accen
 		infoHeight += 24
 	}
 	normalY := topBar(c) + 48 + (h-topBar(c)-60-normalCover-infoHeight-201)/2
+	// When the cover is smaller than its available room, the centered cover
+	// sinks, but the lyrics can still use the space above it.
+	lyricsTop := max(topBar(c)+npTabsHeight+8, normalY-(h-436-normalCover)/2)
 	compactY := max(topBar(c)+50, (h-compactCover)*0.36)
 	y := normalY*(1-center-wallMix) + compactY*center + wallY*wallMix
 	root.Children(func() {
@@ -69,7 +72,7 @@ func (a *app) nowPlayingBody(c *ui.Context, tr *music.Track, art *artwork, accen
 		}
 		if lyricsAlpha > 0 {
 			inactive := a.npPane != paneLyrics
-			ui.Column(c.Key("lyrics-content")).Absolute().Left(npSideX(w)+side+72).Right(npSideX(w)).Top(normalY).Bottom(44).
+			ui.Column(c.Key("lyrics-content")).Absolute().Left(npSideX(w)+side+72).Right(npSideX(w)).Top(lyricsTop).Bottom(44).
 				Opacity(lyricsAlpha*(1-smoothstep(0, 0.55, center))).Translate(32*center, 0).
 				IgnoreInput(inactive).Disabled(inactive).AccessHidden(inactive).
 				Children(func() { a.lyricsPane(c, tr, h) })
@@ -136,7 +139,7 @@ func (a *app) compactLyrics(c *ui.Context, tr *music.Track, coverBottom, shown f
 			ui.Text(c, T("No lyrics. Enjoy the music.")).FontSize(18 * scale).FontWeight(400).LineHeight(1.15).
 				TextColor(white.Alpha(0.55)).TextAlign(ui.Center)
 		} else if cur >= 0 {
-			ui.Text(c, lines[cur].Text).FontSize(18 * scale).FontWeight(400).LineHeight(1.15).
+			ui.Text(c, lines[cur].Text).Lang(lyrics.Lang(lines)).FontSize(18 * scale).FontWeight(400).LineHeight(1.15).
 				TextColor(white.Alpha(0.8)).TextAlign(ui.Center).MaxWidth(w - 96)
 			if lines[cur].Translation != "" {
 				ui.Text(c, lines[cur].Translation).FontSize(14 * scale).FontWeight(400).LineHeight(1.15).
@@ -154,16 +157,17 @@ func (a *app) wallLyrics(c *ui.Context, x, y, width, shown float32) {
 	}
 	pos := a.pl.Position()
 	cur := lyrics.Index(lines, pos)
+	lang := lyrics.Lang(lines)
 	if a.pl.Playing() && cur+1 < len(lines) {
 		c.After(lines[cur+1].At - pos + 20*time.Millisecond)
 	}
 	ui.Column(c.Key("wall-lyrics")).Absolute().Left(x).Top(y).Width(width).Gap(4).
 		Opacity(shown).IgnoreInput(true).Children(func() {
 		if cur >= 0 {
-			ui.Text(c, lines[cur].Text).FontSize(17).FontWeight(700).TextColor(white.Alpha(0.85)).MaxLines(2)
+			ui.Text(c, lines[cur].Text).Lang(lang).FontSize(17).FontWeight(700).TextColor(white.Alpha(0.85)).MaxLines(2)
 		}
 		if cur+1 < len(lines) {
-			ui.Text(c, lines[cur+1].Text).FontSize(14).FontWeight(600).TextColor(white.Alpha(0.38)).SingleLine()
+			ui.Text(c, lines[cur+1].Text).Lang(lang).FontSize(14).FontWeight(600).TextColor(white.Alpha(0.38)).SingleLine()
 		}
 	})
 }

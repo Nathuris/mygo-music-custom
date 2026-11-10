@@ -68,6 +68,18 @@ func load(t *testing.T, manifest, source string) *Plugin {
 
 const plain = `{"id":"x"}`
 
+// Setup errors retain the plugin's reason without losing their error kind.
+func TestSetupErrorPreservesReason(t *testing.T) {
+	const reason = "Install ffmpeg to play this"
+	err := asError("setup", reason)
+	if !errors.Is(err, music.ErrSetup) || music.Reason(err) != reason {
+		t.Fatalf("setup error lost its kind or reason: %v", err)
+	}
+	if err := asError("setup", ""); !errors.Is(err, music.ErrSetup) || music.Reason(err) != "" {
+		t.Fatalf("setup error without a reason: %v", err)
+	}
+}
+
 // An export answers plainly or through a promise, and the tracks it answers
 // are of the plugin, whatever they say, as that's what they'll play through.
 func TestAnswersStampedWithThePlugin(t *testing.T) {
@@ -697,4 +709,63 @@ func TestBadLocale(t *testing.T) {
 	if _, err := Load(dir, data); err == nil || !strings.Contains(err.Error(), "zh-CN.json") {
 		t.Errorf("got %v", err)
 	}
+}
+
+// A plugin's id and main stay inside its own folders: an id of ".." would
+// read and remove another plugin's saved settings, and a main of
+// "../x.js" would run code from outside the plugin.
+func TestLoadKeepsToItsFolders(t *testing.T) {
+	for _, manifest := range []string{
+		`{"id":".."}`,
+		`{"id":"../other"}`,
+		`{"id":"a/b"}`,
+		`{"id":"x","main":"../outside.js"}`,
+		`{"id":"x","main":"/etc/outside.js"}`,
+	} {
+		dir, data := write(t, manifest, "")
+		os.WriteFile(filepath.Join(filepath.Dir(dir), "outside.js"), []byte(""), 0o600)
+		if p, err := Load(dir, data); err == nil {
+			p.Close()
+			t.Errorf("loaded %s", manifest)
+		}
+	}
+	// A normal entry point in a subdirectory must remain usable.
+	dir, data := write(t, `{"id":"x","main":"lib/index.js"}`, "")
+	if err := os.MkdirAll(filepath.Join(dir, "lib"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "lib", "index.js"), []byte(`export function suggest() { return []; }`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Load(dir, data)
+	if err != nil {
+		t.Fatalf("valid nested entry point: %v", err)
+	}
+	p.Close()
+	t.Run("entry symlinks", func(t *testing.T) {
+		dir, data := write(t, `{"id":"x","main":"entry.js"}`, `export function suggest() { return []; }`)
+		outside := filepath.Join(t.TempDir(), "outside.js")
+		if err := os.WriteFile(outside, []byte(`export function suggest() { return []; }`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		link := filepath.Join(dir, "entry.js")
+		if err := os.Symlink(outside, link); err != nil {
+			t.Skipf("symlinks unavailable: %v", err)
+		}
+		if p, err := Load(dir, data); err == nil {
+			p.Close()
+			t.Fatal("loaded an entry point through a symlink outside the plugin")
+		}
+		if err := os.Remove(link); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink("index.js", link); err != nil {
+			t.Fatal(err)
+		}
+		p, err := Load(dir, data)
+		if err != nil {
+			t.Fatalf("internal symlink should remain usable: %v", err)
+		}
+		p.Close()
+	})
 }

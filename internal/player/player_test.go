@@ -12,6 +12,14 @@ import (
 	"mygo-music/internal/music"
 )
 
+// Playback shows the plugin's setup reason instead of replacing it with a generic message.
+func TestPlaybackSetupErrorReason(t *testing.T) {
+	const reason = "Install ffmpeg to play this"
+	if got := errorText(music.Fail(music.ErrSetup, reason)); got != reason {
+		t.Fatalf("got %q, want the plugin's reason %q", got, reason)
+	}
+}
+
 func TestPlayEmptyQueue(t *testing.T) {
 	p := &Player{at: -1}
 	p.PlayQueue(nil, 0) // an empty playlist's play button
